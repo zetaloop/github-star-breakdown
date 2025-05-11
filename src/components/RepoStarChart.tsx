@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,19 +109,15 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
     return (
       <div className="bg-background border border-border p-3 rounded-md shadow-md">
         <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
-        <div className="space-y-1.5" style={{ position: 'relative' }}>
+        <div className="space-y-1.5">
           {reposAtDate.map((entry: any, index: number) => (
             <div 
               key={entry.dataKey} 
-              className="flex items-center gap-2" 
-              style={{
-                position: 'relative',
-                transition: 'transform 0.3s ease',
-                transform: `translateY(${index * 100}%)`,
-                top: 0,
-                left: 0,
-                height: '1.5rem',
-                marginTop: index === 0 ? 0 : '0.375rem'
+              className="flex items-center gap-2 transition-all duration-300 ease-in-out"
+              style={{ 
+                opacity: 1,
+                transform: `translateY(0)`,
+                transitionDelay: `${index * 30}ms`
               }}
             >
               <div 
