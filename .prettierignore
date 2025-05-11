@@ -1,0 +1,13 @@
+# Ignore artifacts:
+build
+dist
+coverage
+node_modules
+
+# Ignore lock files
+package-lock.json
+bun.lockb
+yarn.lock
+
+# Ignore vendored libraries
+vendor
