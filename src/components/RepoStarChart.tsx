@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -159,7 +158,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
                 }}
               />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip />} animationDuration={0} />
               <Legend />
               {/* Render areas in the same order as the table (by total stars desc) */}
               {repoNames.map(repo => (
