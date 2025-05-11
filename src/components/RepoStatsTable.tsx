@@ -10,8 +10,23 @@ interface RepoStatsTableProps {
 }
 
 const RepoStatsTable: React.FC<RepoStatsTableProps> = ({ repos }) => {
-  // Sort repositories by star count in descending order
-  const sortedRepos = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count);
+  // Sort repositories: 1. by star count (desc), 2. by creation date (newest first), 3. by name (alphabetical)
+  const sortedRepos = [...repos].sort((a, b) => {
+    // Primary sort: by stars (descending)
+    if (b.stargazers_count !== a.stargazers_count) {
+      return b.stargazers_count - a.stargazers_count;
+    }
+    
+    // Secondary sort: by creation date (newest first)
+    const dateA = new Date(a.created_at);
+    const dateB = new Date(b.created_at);
+    if (dateB.getTime() !== dateA.getTime()) {
+      return dateB.getTime() - dateA.getTime();
+    }
+    
+    // Tertiary sort: alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
   
   return (
     <Card className="w-full overflow-hidden">

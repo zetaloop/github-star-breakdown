@@ -21,6 +21,11 @@ const getRepoColor = (repoName: string): string => {
   return `hsl(${h}, 70%, 50%)`;
 };
 
+interface ChartDataPoint {
+  date: string;
+  [key: string]: string | number;
+}
+
 const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
   // Process data to create a continuous stacked area chart
   const chartData = useMemo(() => {
@@ -39,8 +44,8 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
     const repos = Array.from(repoSet);
     
     // Initialize data structure with zero values
-    const stackedData = dates.map(date => {
-      const dataPoint: Record<string, any> = { date };
+    const stackedData: ChartDataPoint[] = dates.map(date => {
+      const dataPoint: ChartDataPoint = { date };
       repos.forEach(repo => {
         dataPoint[repo] = 0;
       });
@@ -66,7 +71,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
     repos.forEach(repo => {
       let cumulativeStars = 0;
       for (let i = 0; i < stackedData.length; i++) {
-        cumulativeStars += stackedData[i][repo];
+        cumulativeStars += (stackedData[i][repo] as number);
         stackedData[i][repo] = cumulativeStars;
       }
     });
@@ -75,16 +80,50 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
   }, [starHistory]);
 
   // Extract unique repository names for rendering areas
+  // Sort repos by the same criteria as the table for consistency
   const repoNames = useMemo(() => {
-    const repos = new Set<string>();
-    starHistory.forEach(item => {
-      // Only include repos that have stars
-      if (item.stars > 0) {
-        repos.add(item.repoName);
-      }
-    });
-    return Array.from(repos);
-  }, [starHistory]);
+    if (chartData.length === 0) return [];
+    
+    // Get the last data point (most recent) to sort by current star count
+    const latestDataPoint = chartData[chartData.length - 1];
+    
+    // Filter repos that have stars
+    const reposWithStars = Object.entries(latestDataPoint)
+      .filter(([key, value]) => key !== 'date' && (value as number) > 0)
+      .map(([repo, stars]) => ({ repo, stars: stars as number }));
+    
+    // Sort by current stars (desc) as the primary criterion
+    return reposWithStars
+      .sort((a, b) => b.stars - a.stars)
+      .map(item => item.repo);
+  }, [chartData]);
+
+  // Custom tooltip formatter to sort repos by current stars at the hovered date
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload || !payload.length) return null;
+    
+    // Create a sorted array of repositories based on star count at this specific date point
+    const reposAtDate = payload
+      .filter((entry: any) => entry.value > 0) // Filter out repos with 0 stars
+      .sort((a: any, b: any) => b.value - a.value); // Sort by current stars (at tooltip point)
+    
+    return (
+      <div className="bg-background border border-border p-3 rounded-md shadow-md">
+        <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
+        <div className="space-y-1.5">
+          {reposAtDate.map((entry: any) => (
+            <div key={entry.dataKey} className="flex items-center gap-2">
+              <div 
+                className="w-3 h-3 rounded-sm" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-sm">{entry.dataKey}: {entry.value} stars</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   if (starHistory.length === 0) {
     return (
@@ -120,14 +159,9 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
                 }}
               />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip 
-                formatter={(value, name) => [`${value} stars`, name]}
-                labelFormatter={(label) => {
-                  const date = new Date(label);
-                  return date.toLocaleDateString();
-                }}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
+              {/* Render areas in the same order as the table (by total stars desc) */}
               {repoNames.map(repo => (
                 <Area
                   key={repo}
