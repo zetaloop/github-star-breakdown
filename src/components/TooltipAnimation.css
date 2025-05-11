@@ -10,7 +10,7 @@
     transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
 }
 
-/* Add exit animation for tooltip items - slide out to the left */
+/* Add exit animation for tooltip items - slide out to the right */
 .tooltip-item-exit {
     opacity: 1;
     transform: translateX(0);
