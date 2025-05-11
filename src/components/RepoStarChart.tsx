@@ -108,28 +108,32 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
       .sort((a: any, b: any) => b.value - a.value); // Sort by current stars (at tooltip point)
     
     return (
-      <div className="bg-background border border-border p-3 rounded-md shadow-md">
+      <div className="bg-background border border-border p-3 rounded-md shadow-md transition-all duration-300 ease-in-out">
         <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
-        <div className="space-y-1.5" style={{ position: 'relative' }}>
+        <div 
+          className="space-y-1 relative transition-all duration-300 ease-in-out"
+          style={{ 
+            height: `${reposAtDate.length * 24}px`, /* Animate container height */
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
           {reposAtDate.map((entry: any, index: number) => (
             <div 
               key={entry.dataKey} 
-              className="flex items-center gap-2" 
+              className="flex items-center gap-2 absolute w-full transition-transform duration-300 ease-in-out"
               style={{
-                position: 'relative',
-                transition: 'transform 0.3s ease',
-                transform: `translateY(${index * 100}%)`,
-                top: 0,
-                left: 0,
-                height: '1.5rem',
-                marginTop: index === 0 ? 0 : '0.375rem'
+                transform: `translateY(${index * 24}px)`, /* Position each item */
+                height: '24px', /* Fixed height for each item */
               }}
             >
               <div 
-                className="w-3 h-3 rounded-sm" 
+                className="w-3 h-3 rounded-sm flex-shrink-0" 
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-sm">{entry.dataKey}: {entry.value} stars</span>
+              <span className="text-xs truncate">
+                {entry.dataKey}: {entry.value.toLocaleString()} stars
+              </span>
             </div>
           ))}
         </div>
