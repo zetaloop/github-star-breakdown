@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import ApiKeyForm from "./ApiKeyForm";
 import UserRepoSearch from "./UserRepoSearch";
@@ -27,17 +27,27 @@ const GitHubStarTracker: React.FC = () => {
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [starHistory, setStarHistory] = useState<RepoStarHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [currentTimeRange, setCurrentTimeRange] = useState<"year" | "all">(
+    "all"
+  );
+  const [yearlyIncrements, setYearlyIncrements] = useState<Map<string, number>>(
+    new Map()
+  );
 
-  const handleSearch = async (username: string, timeRange: "year" | "all") => {
+  const handleSearch = async (
+    usernameInput: string,
+    timeRangeInput: "year" | "all"
+  ) => {
     setIsLoading(true);
     setError(null);
-    setUsername(username);
+    setUsername(usernameInput);
+    setCurrentTimeRange(timeRangeInput); // Save timeRange to state
 
     try {
       // Calculate date cutoff for API requests
       const now = new Date();
       const sinceDate =
-        timeRange === "year"
+        timeRangeInput === "year"
           ? new Date(
               now.getFullYear() - 1,
               now.getMonth(),
@@ -46,10 +56,12 @@ const GitHubStarTracker: React.FC = () => {
           : undefined;
 
       // Fetch repositories (already filtered for repos with stars > 0)
-      const userRepos = await fetchUserRepos(username);
+      const userRepos = await fetchUserRepos(usernameInput);
       setRepos(userRepos);
 
       if (userRepos.length === 0) {
+        setStarHistory([]);
+        setYearlyIncrements(new Map());
         toast.info("No public repositories with stars found for this user.");
         setIsLoading(false);
         return;
@@ -84,12 +96,28 @@ const GitHubStarTracker: React.FC = () => {
       const processedStarHistory = processRepoStarHistory(
         reposToProcess,
         stargazersMap,
-        timeRange
+        timeRangeInput
       );
       setStarHistory(processedStarHistory);
 
-      if (processedStarHistory.length === 0) {
-        toast.info("No star data found for the selected time range.");
+      // Calculate yearly increments if timeRange is "year"
+      const newYearlyIncrements = new Map<string, number>();
+      if (timeRangeInput === "year") {
+        processedStarHistory.forEach((item) => {
+          newYearlyIncrements.set(
+            item.repoName,
+            (newYearlyIncrements.get(item.repoName) || 0) + item.stars
+          );
+        });
+      }
+      setYearlyIncrements(newYearlyIncrements);
+
+      if (processedStarHistory.length === 0 && timeRangeInput === "year") {
+        toast.info(
+          "No star data found for the selected time range (last year)."
+        );
+      } else if (processedStarHistory.length === 0) {
+        toast.info("No star data found.");
       }
     } catch (error) {
       console.error("Error analyzing repositories:", error);
@@ -123,10 +151,18 @@ const GitHubStarTracker: React.FC = () => {
               <Skeleton className="h-[300px] w-full" />
             </div>
           ) : (
-            username && (
+            username &&
+            starHistory.length > 0 && (
               <div className="space-y-6">
-                <RepoStarChart starHistory={starHistory} />
-                <RepoStatsTable repos={repos} />
+                <RepoStarChart
+                  starHistory={starHistory}
+                  timeRange={currentTimeRange}
+                />
+                <RepoStatsTable
+                  repos={repos}
+                  timeRange={currentTimeRange}
+                  yearlyIncrements={yearlyIncrements}
+                />
               </div>
             )
           )}

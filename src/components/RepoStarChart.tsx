@@ -22,6 +22,7 @@ import "./TooltipAnimation.css";
 
 interface RepoStarChartProps {
   starHistory: RepoStarHistoryItem[];
+  timeRange: "year" | "all";
 }
 
 // Generate a pseudo-random color based on repository name for consistent coloring
@@ -42,7 +43,10 @@ interface ChartDataPoint {
   [key: string]: string | number;
 }
 
-const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
+const RepoStarChart: React.FC<RepoStarChartProps> = ({
+  starHistory,
+  timeRange,
+}) => {
   // Process data to create a continuous stacked area chart
   const chartData = useMemo(() => {
     if (!starHistory.length) return [];
@@ -156,7 +160,9 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
                     style={{ backgroundColor: entry.color }}
                   />
                   <span className="text-sm">
-                    {entry.dataKey}: {entry.value} stars
+                    {entry.dataKey}:{" "}
+                    {timeRange === "year" && entry.value > 0 ? "+" : ""}
+                    {entry.value.toLocaleString()} stars
                   </span>
                 </div>
               </CSSTransition>
@@ -185,7 +191,9 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
       <CardHeader>
         <CardTitle>Repository Star Growth</CardTitle>
         <CardDescription>
-          Cumulative star contribution of each repository over time
+          {timeRange === "year"
+            ? "Cumulative star growth over the last year"
+            : "Cumulative star contribution of each repository over time"}
         </CardDescription>
       </CardHeader>
       <CardContent>
