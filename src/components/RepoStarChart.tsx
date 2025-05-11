@@ -131,7 +131,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
                 className="w-3 h-3 rounded-sm flex-shrink-0" 
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-xs truncate">
+              <span className="text-sm truncate">
                 {entry.dataKey}: {entry.value.toLocaleString()} stars
               </span>
             </div>
