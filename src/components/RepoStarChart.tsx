@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -108,34 +107,30 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
       .sort((a: any, b: any) => b.value - a.value); // Sort by current stars (at tooltip point)
     
     return (
-      <div className="bg-background border border-border p-3 rounded-md shadow-md transition-all duration-300 ease-in-out">
+      <div className="bg-background border border-border p-3 rounded-md shadow-md">
         <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
-        <div 
-          className="space-y-1 relative transition-all duration-300 ease-in-out"
-          style={{ 
-            height: `${reposAtDate.length * 24}px`, /* Animate container height */
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-        >
+        <div className="relative h-auto">
           {reposAtDate.map((entry: any, index: number) => (
             <div 
               key={entry.dataKey} 
-              className="flex items-center gap-2 absolute w-full transition-transform duration-300 ease-in-out"
+              className="flex items-center gap-2" 
               style={{
-                transform: `translateY(${index * 24}px)`, /* Position each item */
-                height: '24px', /* Fixed height for each item */
+                position: 'absolute',
+                transition: 'transform 0.2s ease-out',
+                transform: `translateY(${index * 24}px)`, // Reduced height for each item
+                width: '100%',
+                height: '24px', // Fixed height for each item
               }}
             >
               <div 
                 className="w-3 h-3 rounded-sm flex-shrink-0" 
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-sm truncate">
-                {entry.dataKey}: {entry.value.toLocaleString()} stars
-              </span>
+              <span className="text-xs truncate">{entry.dataKey}: {entry.value} stars</span>
             </div>
           ))}
+          {/* Add invisible spacer to ensure tooltip has proper height */}
+          <div style={{ height: `${reposAtDate.length * 24}px` }}></div>
         </div>
       </div>
     );
