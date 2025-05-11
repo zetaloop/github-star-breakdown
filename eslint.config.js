@@ -6,7 +6,12 @@ import tseslint from "typescript-eslint";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 
 export default tseslint.config(
-  { ignores: ["dist", "src/components/ui/"] },
+  {
+    ignores: [
+      "dist",
+      "src/components/ui/", // Ignore shadcn components
+    ],
+  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
