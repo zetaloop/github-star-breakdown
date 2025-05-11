@@ -10,7 +10,7 @@ const Index = () => {
         <div className="flex justify-center mb-2">
           <GitHubIcon className="h-16 w-16" />
         </div>
-        <h1 className="text-4xl font-bold tracking-tight">GitHub Star Tracker</h1>
+        <h1 className="text-4xl font-bold tracking-tight">GitHub User Star Tracker</h1>
         <p className="text-lg text-muted-foreground mt-2">
           Analyze how each repository contributes to a GitHub user's total stars over time
         </p>
