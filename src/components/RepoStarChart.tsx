@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -114,11 +113,11 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
           {reposAtDate.map((entry: any, index: number) => (
             <div 
               key={entry.dataKey} 
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 transition-all duration-300 ease-in-out"
               style={{ 
-                animation: `tooltipItemEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1)`,
-                transition: `transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)`,
+                opacity: 1,
                 transform: `translateY(0)`,
+                transitionDelay: `${index * 30}ms`
               }}
             >
               <div 
@@ -145,86 +144,48 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
   }
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @keyframes tooltipItemEnter {
-            from {
-              opacity: 0;
-              transform: translateX(-8px);
-            }
-            to {
-              opacity: 1;
-              transform: translateX(0);
-            }
-          }
-          
-          @keyframes tooltipItemExit {
-            from {
-              opacity: 1;
-              transform: translateX(0);
-            }
-            to {
-              opacity: 0;
-              transform: translateX(8px);
-            }
-          }
-          
-          .recharts-tooltip-wrapper {
-            transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-          }
-          
-          /* Override default Recharts tooltip transition */
-          .recharts-tooltip-wrapper .recharts-default-tooltip {
-            animation: none !important;
-            transition: none !important;
-          }
-        `
-      }} />
-      
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Repository Star Growth</CardTitle>
-          <CardDescription>Cumulative star contribution of each repository over time</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(date) => {
-                    const d = new Date(date);
-                    return `${d.getMonth() + 1}/${d.getFullYear() % 100}`;
-                  }}
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Repository Star Growth</CardTitle>
+        <CardDescription>Cumulative star contribution of each repository over time</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={chartData}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fontSize: 12 }}
+                tickFormatter={(date) => {
+                  const d = new Date(date);
+                  return `${d.getMonth() + 1}/${d.getFullYear() % 100}`;
+                }}
+              />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend />
+              {/* Render areas in the same order as the table (by total stars desc) */}
+              {repoNames.map(repo => (
+                <Area
+                  key={repo}
+                  type="monotone"
+                  dataKey={repo}
+                  name={repo}
+                  stackId="1"
+                  stroke={getRepoColor(repo)}
+                  fill={getRepoColor(repo)}
+                  fillOpacity={0.6}
                 />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                {/* Render areas in the same order as the table (by total stars desc) */}
-                {repoNames.map(repo => (
-                  <Area
-                    key={repo}
-                    type="monotone"
-                    dataKey={repo}
-                    name={repo}
-                    stackId="1"
-                    stroke={getRepoColor(repo)}
-                    fill={getRepoColor(repo)}
-                    fillOpacity={0.6}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-    </>
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
