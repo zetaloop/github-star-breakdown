@@ -162,7 +162,8 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                   <span className="text-sm">
                     {entry.dataKey}:{" "}
                     {timeRange === "year" && entry.value > 0 ? "+" : ""}
-                    {entry.value.toLocaleString()} stars
+                    {entry.value.toLocaleString()}{" "}
+                    {Math.abs(entry.value) === 1 ? "star" : "stars"}
                   </span>
                 </div>
               </CSSTransition>
