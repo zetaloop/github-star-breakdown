@@ -110,9 +110,21 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
     return (
       <div className="bg-background border border-border p-3 rounded-md shadow-md">
         <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
-        <div className="space-y-1.5">
-          {reposAtDate.map((entry: any) => (
-            <div key={entry.dataKey} className="flex items-center gap-2">
+        <div className="space-y-1.5" style={{ position: 'relative' }}>
+          {reposAtDate.map((entry: any, index: number) => (
+            <div 
+              key={entry.dataKey} 
+              className="flex items-center gap-2" 
+              style={{
+                position: 'relative',
+                transition: 'transform 0.3s ease',
+                transform: `translateY(${index * 100}%)`,
+                top: 0,
+                left: 0,
+                height: '1.5rem',
+                marginTop: index === 0 ? 0 : '0.375rem'
+              }}
+            >
               <div 
                 className="w-3 h-3 rounded-sm" 
                 style={{ backgroundColor: entry.color }}
