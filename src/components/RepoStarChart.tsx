@@ -1,3 +1,4 @@
+
 import { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,28 +110,28 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
     return (
       <div className="bg-background border border-border p-3 rounded-md shadow-md">
         <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
-        <div className="relative h-auto">
+        <div className="space-y-1.5" style={{ position: 'relative' }}>
           {reposAtDate.map((entry: any, index: number) => (
             <div 
               key={entry.dataKey} 
               className="flex items-center gap-2" 
               style={{
-                position: 'absolute',
-                transition: 'transform 0.2s ease-out',
-                transform: `translateY(${index * 24}px)`, // Reduced height for each item
-                width: '100%',
-                height: '24px', // Fixed height for each item
+                position: 'relative',
+                transition: 'transform 0.3s ease',
+                transform: `translateY(${index * 100}%)`,
+                top: 0,
+                left: 0,
+                height: '1.5rem',
+                marginTop: index === 0 ? 0 : '0.375rem'
               }}
             >
               <div 
-                className="w-3 h-3 rounded-sm flex-shrink-0" 
+                className="w-3 h-3 rounded-sm" 
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-xs truncate">{entry.dataKey}: {entry.value} stars</span>
+              <span className="text-sm">{entry.dataKey}: {entry.value} stars</span>
             </div>
           ))}
-          {/* Add invisible spacer to ensure tooltip has proper height */}
-          <div style={{ height: `${reposAtDate.length * 24}px` }}></div>
         </div>
       </div>
     );
