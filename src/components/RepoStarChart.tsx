@@ -146,39 +146,41 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
 
   return (
     <>
-      <style jsx global>{`
-        @keyframes tooltipItemEnter {
-          from {
-            opacity: 0;
-            transform: translateX(-8px);
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes tooltipItemEnter {
+            from {
+              opacity: 0;
+              transform: translateX(-8px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
           }
-          to {
-            opacity: 1;
-            transform: translateX(0);
+          
+          @keyframes tooltipItemExit {
+            from {
+              opacity: 1;
+              transform: translateX(0);
+            }
+            to {
+              opacity: 0;
+              transform: translateX(8px);
+            }
           }
-        }
-        
-        @keyframes tooltipItemExit {
-          from {
-            opacity: 1;
-            transform: translateX(0);
+          
+          .recharts-tooltip-wrapper {
+            transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           }
-          to {
-            opacity: 0;
-            transform: translateX(8px);
+          
+          /* Override default Recharts tooltip transition */
+          .recharts-tooltip-wrapper .recharts-default-tooltip {
+            animation: none !important;
+            transition: none !important;
           }
-        }
-        
-        .recharts-tooltip-wrapper {
-          transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        /* Override default Recharts tooltip transition */
-        .recharts-tooltip-wrapper .recharts-default-tooltip {
-          animation: none !important;
-          transition: none !important;
-        }
-      `}</style>
+        `
+      }} />
       
       <Card className="w-full">
         <CardHeader>
