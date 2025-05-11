@@ -1,0 +1,33 @@
+/* Add enter animation for tooltip items - slide in from the right */
+.tooltip-item-enter {
+    opacity: 0;
+    transform: translateX(1rem);
+}
+
+.tooltip-item-enter-active {
+    opacity: 1;
+    transform: translateX(0);
+    transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+/* Add exit animation for tooltip items - slide out to the left */
+.tooltip-item-exit {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.tooltip-item-exit-active {
+    opacity: 0;
+    transform: translateX(1rem);
+    transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+/* Add smooth transition animation for tooltip item movement */
+.tooltip-item-move {
+    transition: transform 0.2s ease-in-out;
+}
+
+/* Add height transition animation for tooltip container */
+.tooltip-list {
+    transition: height 0.2s ease-in-out;
+}

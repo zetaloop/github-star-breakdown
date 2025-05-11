@@ -16,7 +16,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TransitionGroup, CSSTransition } from "react-transition-group";
 import { RepoStarHistoryItem } from "@/types/github";
+import "./TooltipAnimation.css";
 
 interface RepoStarChartProps {
   starHistory: RepoStarHistoryItem[];
@@ -140,18 +142,26 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
         <p className="font-medium mb-2">
           {label ? new Date(label).toLocaleDateString() : ""}
         </p>
-        <div className="space-y-1.5">
-          {reposAtDate.map((entry) => (
-            <div key={entry.dataKey} className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-sm"
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className="text-sm">
-                {entry.dataKey}: {entry.value} stars
-              </span>
-            </div>
-          ))}
+        <div className="tooltip-list space-y-1.5">
+          <TransitionGroup component={null}>
+            {reposAtDate.map((entry) => (
+              <CSSTransition
+                key={entry.dataKey}
+                timeout={300}
+                classNames="tooltip-item"
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-sm"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-sm">
+                    {entry.dataKey}: {entry.value} stars
+                  </span>
+                </div>
+              </CSSTransition>
+            ))}
+          </TransitionGroup>
         </div>
       </div>
     );
