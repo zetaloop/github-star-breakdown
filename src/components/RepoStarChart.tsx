@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,39 +97,6 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
       .map(item => item.repo);
   }, [chartData]);
 
-  // Add CSS for animations
-  const tooltipStyles = `
-    /* Tooltip container animations */
-    .repo-tooltip {
-      transition: height 0.4s cubic-bezier(0.25, 0.1, 0.25, 1.2);
-    }
-    
-    /* Item animations for position changes */
-    .repo-tooltip-item {
-      transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1.2);
-    }
-    
-    /* Enter animation (slide from left) */
-    .repo-tooltip-item-enter {
-      opacity: 0;
-      transform: translateX(-20px);
-    }
-    
-    /* Active state (normal position) */
-    .repo-tooltip-item-enter-active,
-    .repo-tooltip-item-exit {
-      opacity: 1;
-      transform: translateX(0);
-    }
-    
-    /* Exit animation (slide to right) */
-    .repo-tooltip-item-exit-active {
-      opacity: 0;
-      transform: translateX(20px);
-      transition: opacity 0.3s ease, transform 0.3s ease;
-    }
-  `;
-
   // Custom tooltip formatter to sort repos by current stars at the hovered date
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !payload.length) return null;
@@ -141,26 +107,28 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
       .sort((a: any, b: any) => b.value - a.value); // Sort by current stars (at tooltip point)
     
     return (
-      <>
-        <style dangerouslySetInnerHTML={{ __html: tooltipStyles }} />
-        <div className="bg-background border border-border p-3 rounded-md shadow-md repo-tooltip">
-          <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
-          <div className="space-y-1.5">
-            {reposAtDate.map((entry: any) => (
+      <div className="bg-background border border-border p-3 rounded-md shadow-md">
+        <p className="font-medium mb-2">{new Date(label).toLocaleDateString()}</p>
+        <div className="space-y-1.5">
+          {reposAtDate.map((entry: any, index: number) => (
+            <div 
+              key={entry.dataKey} 
+              className="flex items-center gap-2 transition-all duration-300 ease-in-out"
+              style={{ 
+                opacity: 1,
+                transform: `translateY(0)`,
+                transitionDelay: `${index * 30}ms`
+              }}
+            >
               <div 
-                key={entry.dataKey} 
-                className="flex items-center gap-2 repo-tooltip-item"
-              >
-                <div 
-                  className="w-3 h-3 rounded-sm" 
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span className="text-sm">{entry.dataKey}: {entry.value} stars</span>
-              </div>
-            ))}
-          </div>
+                className="w-3 h-3 rounded-sm" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-sm">{entry.dataKey}: {entry.value} stars</span>
+            </div>
+          ))}
         </div>
-      </>
+      </div>
     );
   };
 
