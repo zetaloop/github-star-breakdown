@@ -1,5 +1,10 @@
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import GitHubStarTracker from "@/components/GitHubStarTracker";
 import { GitHubIcon } from "@/components/icons/GitHubIcon";
 
@@ -10,27 +15,32 @@ const Index = () => {
         <div className="flex justify-center mb-2">
           <GitHubIcon className="h-16 w-16" />
         </div>
-        <h1 className="text-4xl font-bold tracking-tight">GitHub User Star Tracker</h1>
+        <h1 className="text-4xl font-bold tracking-tight">
+          GitHub User Star Tracker
+        </h1>
         <p className="text-lg text-muted-foreground mt-2">
-          Analyze how each repository contributes to a GitHub user's total stars over time
+          Analyze how each repository contributes to a GitHub user's total stars
+          over time
         </p>
       </header>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Repository Star Analysis</CardTitle>
           <CardDescription>
-            Enter a GitHub username to view their repositories and analyze star growth contribution over time
+            Enter a GitHub username to view their repositories and analyze star
+            growth contribution over time
           </CardDescription>
         </CardHeader>
         <CardContent>
           <GitHubStarTracker />
         </CardContent>
       </Card>
-      
+
       <footer className="text-center text-sm text-muted-foreground py-4">
         <p>
-          Built with React, Recharts, and GitHub API. Note: GitHub API has rate limits that may affect data retrieval.
+          Built with React, Recharts, and GitHub API. Note: GitHub API has rate
+          limits that may affect data retrieval.
         </p>
       </footer>
     </div>

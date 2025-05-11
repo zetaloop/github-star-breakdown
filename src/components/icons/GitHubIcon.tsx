@@ -1,13 +1,8 @@
-
-import { SVGProps } from 'react';
+import { SVGProps } from "react";
 
 export function GitHubIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      viewBox="0 0 98 96"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
+    <svg viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg" {...props}>
       <path
         fillRule="evenodd"
         clipRule="evenodd"

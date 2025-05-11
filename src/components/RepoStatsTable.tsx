@@ -1,9 +1,15 @@
-
-import React from 'react';
+import React from "react";
 import { Card } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { GitHubRepo } from '@/types/github';
-import { Star } from 'lucide-react';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { GitHubRepo } from "@/types/github";
+import { Star } from "lucide-react";
 
 interface RepoStatsTableProps {
   repos: GitHubRepo[];
@@ -16,18 +22,18 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({ repos }) => {
     if (b.stargazers_count !== a.stargazers_count) {
       return b.stargazers_count - a.stargazers_count;
     }
-    
+
     // Secondary sort: by creation date (newest first)
     const dateA = new Date(a.created_at);
     const dateB = new Date(b.created_at);
     if (dateB.getTime() !== dateA.getTime()) {
       return dateB.getTime() - dateA.getTime();
     }
-    
+
     // Tertiary sort: alphabetically by name
     return a.name.localeCompare(b.name);
   });
-  
+
   return (
     <Card className="w-full overflow-hidden">
       <Table>
@@ -50,9 +56,9 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({ repos }) => {
             sortedRepos.map((repo) => (
               <TableRow key={repo.id}>
                 <TableCell className="font-medium">
-                  <a 
-                    href={repo.html_url} 
-                    target="_blank" 
+                  <a
+                    href={repo.html_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="hover:underline text-github-blue"
                   >
@@ -64,7 +70,7 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({ repos }) => {
                     </p>
                   )}
                 </TableCell>
-                <TableCell>{repo.language || '—'}</TableCell>
+                <TableCell>{repo.language || "—"}</TableCell>
                 <TableCell className="text-right">
                   <span className="flex items-center justify-end gap-1">
                     <Star className="h-4 w-4 text-amber-500" />

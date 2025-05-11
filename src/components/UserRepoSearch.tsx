@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -8,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Search, Star } from "lucide-react";
 
 interface UserRepoSearchProps {
-  onSearch: (username: string, timeRange: 'year' | 'all') => void;
+  onSearch: (username: string, timeRange: "year" | "all") => void;
   isLoading: boolean;
 }
 
-const UserRepoSearch: React.FC<UserRepoSearchProps> = ({ onSearch, isLoading }) => {
-  const [username, setUsername] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<'year' | 'all'>('year');
+const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
+  onSearch,
+  isLoading,
+}) => {
+  const [username, setUsername] = useState<string>("");
+  const [timeRange, setTimeRange] = useState<"year" | "all">("year");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,9 +38,9 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({ onSearch, isLoading }) 
               className="pl-8"
             />
           </div>
-          <Button 
-            type="submit" 
-            disabled={isLoading || !username.trim()} 
+          <Button
+            type="submit"
+            disabled={isLoading || !username.trim()}
             className="bg-github-blue hover:bg-github-darkBlue"
           >
             <Star className="mr-2 h-4 w-4" />
@@ -47,9 +49,9 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({ onSearch, isLoading }) 
         </div>
 
         <div className="mt-2">
-          <RadioGroup 
-            value={timeRange} 
-            onValueChange={(value) => setTimeRange(value as 'year' | 'all')}
+          <RadioGroup
+            value={timeRange}
+            onValueChange={(value) => setTimeRange(value as "year" | "all")}
             className="flex space-x-6"
           >
             <div className="flex items-center space-x-2">
