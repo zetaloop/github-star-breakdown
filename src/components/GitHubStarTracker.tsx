@@ -31,12 +31,12 @@ const GitHubStarTracker: React.FC = () => {
         ? new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()).toISOString()
         : undefined;
       
-      // Fetch repositories
+      // Fetch repositories (already filtered for repos with stars > 0)
       const userRepos = await fetchUserRepos(username);
       setRepos(userRepos);
       
       if (userRepos.length === 0) {
-        toast.info("No public repositories found for this user.");
+        toast.info("No public repositories with stars found for this user.");
         setIsLoading(false);
         return;
       }
@@ -52,9 +52,6 @@ const GitHubStarTracker: React.FC = () => {
       await Promise.all(
         reposToProcess.map(async (repo) => {
           try {
-            // Skip repos with no stars
-            if (repo.stargazers_count === 0) return;
-            
             const stargazers = await fetchRepoStargazers(repo.full_name, sinceDate);
             stargazersMap.set(repo.full_name, stargazers);
           } catch (error) {

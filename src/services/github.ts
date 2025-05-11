@@ -39,9 +39,9 @@ export const fetchUserRepos = async (username: string): Promise<GitHubRepo[]> =>
 
       const repos: GitHubRepo[] = await response.json();
       
-      // Filter out forks as they don't count towards user's stars
-      const nonForkRepos = repos.filter(repo => !repo.fork);
-      allRepos = [...allRepos, ...nonForkRepos];
+      // Filter out forks and repos with 0 stars as they don't count towards user's stars
+      const filteredRepos = repos.filter(repo => !repo.fork && repo.stargazers_count > 0);
+      allRepos = [...allRepos, ...filteredRepos];
       
       // Check if we got the maximum items per page (indicating there might be more)
       hasMoreRepos = repos.length === 100;
@@ -124,7 +124,7 @@ export const processRepoStarHistory = (
   // Calculate the cutoff date based on selected time range
   const cutoffDate = timeRange === 'year' ? oneYearAgo : new Date(0);
   
-  // Process each repository
+  // Process each repository (already filtered for repos with stars > 0)
   repos.forEach(repo => {
     const stargazers = repoStargazers.get(repo.full_name) || [];
     

@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RepoStarHistoryItem } from '@/types/github';
 
@@ -22,7 +22,7 @@ const getRepoColor = (repoName: string): string => {
 };
 
 const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
-  // Process data to create a cumulative time series by date for each repository
+  // Process data to create a continuous stacked area chart
   const chartData = useMemo(() => {
     if (!starHistory.length) return [];
     
@@ -38,8 +38,8 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
     const dates = Array.from(dateSet).sort();
     const repos = Array.from(repoSet);
     
-    // Initialize cumulative data
-    const cumulativeData = dates.map(date => {
+    // Initialize data structure with zero values
+    const stackedData = dates.map(date => {
       const dataPoint: Record<string, any> = { date };
       repos.forEach(repo => {
         dataPoint[repo] = 0;
@@ -53,26 +53,36 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
       dateMap.set(date, index);
     });
     
-    // Fill in the actual stars data and make it cumulative
+    // Fill in actual star data
     starHistory.forEach(item => {
-      const dateIndex = dateMap.get(item.date) as number;
-      
-      // Add stars for the current date
-      cumulativeData[dateIndex][item.repoName] = item.stars;
-      
-      // Update all future dates to maintain the cumulative count
-      for (let i = dateIndex + 1; i < dates.length; i++) {
-        cumulativeData[i][item.repoName] += cumulativeData[dateIndex][item.repoName];
+      const index = dateMap.get(item.date);
+      if (index !== undefined) {
+        stackedData[index][item.repoName] = item.stars;
       }
     });
     
-    return cumulativeData;
+    // Make the data cumulative for stacked area chart
+    // For each repo, stars should accumulate over time
+    repos.forEach(repo => {
+      let cumulativeStars = 0;
+      for (let i = 0; i < stackedData.length; i++) {
+        cumulativeStars += stackedData[i][repo];
+        stackedData[i][repo] = cumulativeStars;
+      }
+    });
+    
+    return stackedData;
   }, [starHistory]);
 
-  // Extract unique repository names for rendering lines
+  // Extract unique repository names for rendering areas
   const repoNames = useMemo(() => {
     const repos = new Set<string>();
-    starHistory.forEach(item => repos.add(item.repoName));
+    starHistory.forEach(item => {
+      // Only include repos that have stars
+      if (item.stars > 0) {
+        repos.add(item.repoName);
+      }
+    });
     return Array.from(repos);
   }, [starHistory]);
 
@@ -91,12 +101,12 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Repository Star Growth</CardTitle>
-        <CardDescription>Star contribution of each repository over time</CardDescription>
+        <CardDescription>Cumulative star contribution of each repository over time</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <AreaChart
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
@@ -119,17 +129,18 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({ starHistory }) => {
               />
               <Legend />
               {repoNames.map(repo => (
-                <Line
+                <Area
                   key={repo}
                   type="monotone"
                   dataKey={repo}
                   name={repo}
+                  stackId="1"
                   stroke={getRepoColor(repo)}
-                  activeDot={{ r: 6 }}
-                  dot={{ r: 3 }}
+                  fill={getRepoColor(repo)}
+                  fillOpacity={0.6}
                 />
               ))}
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
