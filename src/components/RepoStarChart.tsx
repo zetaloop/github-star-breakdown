@@ -224,7 +224,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px]">
+        <div className="h-[400px] relative">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
@@ -240,7 +240,12 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                 }}
               />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip content={<CustomTooltip />} animationDuration={0} />
+              <Tooltip
+                content={<CustomTooltip />}
+                animationDuration={0}
+                allowEscapeViewBox={{ x: false, y: true }}
+                position={{ y: 0 }}
+              />
               <Legend
                 payload={repoNames.map((repo) => ({
                   value: repo,
