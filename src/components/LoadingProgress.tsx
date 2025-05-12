@@ -19,16 +19,16 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
     totalRepos > 0 ? (processedRepos / totalRepos) * 100 : 0;
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll smoothly to the bottom of the log
+  // Auto-scroll immediately to the bottom of the log
   useEffect(() => {
-    const logContainer = scrollAreaRef.current?.querySelector(".space-y-1"); // Get the container of log entries
-    if (logContainer && logContainer.lastElementChild) {
-      // Use requestAnimationFrame to ensure scrolling happens after render
+    const viewport = scrollAreaRef.current?.querySelector(
+      "div[data-radix-scroll-area-viewport]" // Use the data attribute selector for the viewport
+    );
+    if (viewport) {
+      // Use requestAnimationFrame to ensure scrolling happens after render and DOM update
       requestAnimationFrame(() => {
-        logContainer.lastElementChild?.scrollIntoView({
-          behavior: "smooth",
-          block: "end", // Scroll to the end of the element
-        });
+        // Set scrollTop directly for immediate jump
+        viewport.scrollTop = viewport.scrollHeight;
       });
     }
   }, [log]); // Scroll when log updates
