@@ -4,6 +4,7 @@ import ApiKeyForm from "./ApiKeyForm";
 import UserRepoSearch from "./UserRepoSearch";
 import RepoStarChart from "./RepoStarChart";
 import RepoStatsTable from "./RepoStatsTable";
+import LoadingProgress from "./LoadingProgress"; // Import the new component
 import {
   GitHubRepo,
   GitHubStargazer,
@@ -33,6 +34,13 @@ const GitHubStarTracker: React.FC = () => {
   const [yearlyIncrements, setYearlyIncrements] = useState<Map<string, number>>(
     new Map()
   );
+  // --- Progress State ---
+  const [totalReposToProcess, setTotalReposToProcess] = useState<number>(0);
+  const [processedReposCount, setProcessedReposCount] = useState<number>(0);
+  const [loadingLog, setLoadingLog] = useState<
+    Array<{ name: string; status: string }>
+  >([]); // Log for detailed progress
+  // --- End Progress State ---
 
   const handleSearch = async (
     usernameInput: string,
@@ -41,7 +49,13 @@ const GitHubStarTracker: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setUsername(usernameInput);
-    setCurrentTimeRange(timeRangeInput); // Save timeRange to state
+    setCurrentTimeRange(timeRangeInput);
+    setStarHistory([]); // Clear previous results
+    setRepos([]);
+    setYearlyIncrements(new Map());
+    setTotalReposToProcess(0);
+    setProcessedReposCount(0);
+    setLoadingLog([]); // Reset log
 
     try {
       // Calculate date cutoff for API requests
@@ -60,8 +74,6 @@ const GitHubStarTracker: React.FC = () => {
       setRepos(userRepos);
 
       if (userRepos.length === 0) {
-        setStarHistory([]);
-        setYearlyIncrements(new Map());
         toast.info("No public repositories with stars found for this user.");
         setIsLoading(false);
         return;
@@ -71,23 +83,47 @@ const GitHubStarTracker: React.FC = () => {
       const stargazersMap = new Map<string, GitHubStargazer[]>();
 
       // We limit to avoid hitting rate limits - GitHub API has strict rate limits
-      const reposToProcess = userRepos.slice(0, 30);
+      const reposToProcess = userRepos.slice(0, 30); // Limit processing
 
-      toast.info(`Processing ${reposToProcess.length} repositories...`);
+      // --- Initialize Progress ---
+      setTotalReposToProcess(reposToProcess.length);
+      setProcessedReposCount(0);
+      // --- End Initialize Progress ---
 
+      toast.info(
+        `Fetching star data for ${reposToProcess.length} repositories...`
+      );
+
+      // Use Promise.all for parallel fetching
       await Promise.all(
         reposToProcess.map(async (repo) => {
+          let status = "";
           try {
             const stargazers = await fetchRepoStargazers(
               repo.full_name,
               sinceDate
             );
             stargazersMap.set(repo.full_name, stargazers);
-          } catch (error) {
+            status = `✅ Fetched ${stargazers.length} stars`;
+          } catch (error: unknown) {
+            // Use unknown type for error
             console.error(
               `Error fetching stargazers for ${repo.full_name}:`,
               error
             );
+            // Check if error is an instance of Error to safely access message
+            if (error instanceof Error) {
+              status = `❌ Error: ${error.message}`;
+            } else {
+              status = `❌ Error: Failed to fetch (Unknown error)`;
+            }
+          } finally {
+            // Update log and count atomically
+            setLoadingLog((prevLog) => [
+              ...prevLog,
+              { name: repo.full_name, status: status },
+            ]);
+            setProcessedReposCount((prevCount) => prevCount + 1);
           }
         })
       );
@@ -146,18 +182,28 @@ const GitHubStarTracker: React.FC = () => {
           )}
 
           {isLoading ? (
-            <div className="space-y-6">
-              <Skeleton className="h-[400px] w-full" />
-              <Skeleton className="h-[300px] w-full" />
-            </div>
+            <LoadingProgress
+              totalRepos={totalReposToProcess}
+              processedRepos={processedReposCount}
+              log={loadingLog} // Pass the log
+            />
           ) : (
-            username &&
-            starHistory.length > 0 && (
+            username && // Only show results if a search has been performed
+            (starHistory.length > 0 || repos.length > 0) && ( // Show table even if no star history in range
               <div className="space-y-6">
-                <RepoStarChart
-                  starHistory={starHistory}
-                  timeRange={currentTimeRange}
-                />
+                {starHistory.length > 0 ? (
+                  <RepoStarChart
+                    starHistory={starHistory}
+                    timeRange={currentTimeRange}
+                  />
+                ) : (
+                  !error && (
+                    <p>
+                      No star history data to display for the selected range.
+                    </p>
+                  ) // Show message if no chart data
+                )}
+                {/* Always show table if repos were found */}
                 <RepoStatsTable
                   repos={repos}
                   timeRange={currentTimeRange}
