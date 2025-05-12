@@ -150,13 +150,23 @@ export const processRepoStarHistory = (
     // Convert to array and sort by date
     const sortedDates = Array.from(starsByDate.keys()).sort();
 
-    sortedDates.forEach((date) => {
-      result.push({
-        repoName: repo.name,
-        date,
-        stars: starsByDate.get(date) || 0,
-      });
-    });
+    // fill all dates between first and last star
+    if (sortedDates.length) {
+      const startDate = new Date(sortedDates[0]);
+      const endDate = new Date(sortedDates[sortedDates.length - 1]);
+      for (
+        let d = new Date(startDate);
+        d <= endDate;
+        d.setDate(d.getDate() + 1)
+      ) {
+        const dateKey = d.toISOString().split("T")[0];
+        result.push({
+          repoName: repo.name,
+          date: dateKey,
+          stars: starsByDate.get(dateKey) || 0,
+        });
+      }
+    }
   });
 
   return result;
