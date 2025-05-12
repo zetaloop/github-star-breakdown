@@ -72,12 +72,6 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
               <span>{entry.status}</span>
             </p>
           ))}
-          {processedRepos < totalRepos &&
-            log.length === processedRepos && ( // Show processing only if log hasn't updated yet for next item
-              <p className="text-xs font-mono text-muted-foreground animate-pulse pt-1">
-                Processing next repository...
-              </p>
-            )}
           {log.length === 0 &&
             totalRepos > 0 && ( // Initial message before first log entry
               <p className="text-xs font-mono text-muted-foreground animate-pulse pt-1">
@@ -88,14 +82,13 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       </ScrollArea>
 
       {/* Skeleton placeholders - Abstract list style with more pronounced staggered animation */}
-      <div className="space-y-3 mt-4 pt-4 border-t">
-        {" "}
-        {/* Add border top for separation */}
+      {/* Increased spacing (space-y-4) and removed border-t */}
+      <div className="space-y-4 mt-4 pt-4">
         {/* Create 7 simpler horizontal bar skeletons */}
         {[...Array(7)].map((_, index) => (
           <Skeleton
             key={index}
-            className="h-5 w-full" // Simple horizontal bar, slightly taller
+            className="h-5 w-full animate-enhanced-pulse" // Use the custom animation class
             // Apply more pronounced staggered animation delay
             style={{ animationDelay: `${index * 0.3}s` }} // Increased delay increment
           />
