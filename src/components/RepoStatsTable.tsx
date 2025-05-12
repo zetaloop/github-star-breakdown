@@ -73,7 +73,7 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
           <TableRow>
             <TableHead>Repository</TableHead>
             <TableHead>Language</TableHead>
-            <TableHead className="text-right">
+            <TableHead className="text-left">
               {timeRange === "year" ? "Stars (Last Year)" : "Stars (Total)"}
             </TableHead>
             <TableHead>Created</TableHead>
@@ -107,8 +107,8 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
                   )}
                 </TableCell>
                 <TableCell>{repo.language || "—"}</TableCell>
-                <TableCell className="text-right">
-                  <span className="flex items-center justify-end gap-1">
+                <TableCell className="text-left">
+                  <span className="flex items-center justify-start gap-1">
                     <Star className="h-4 w-4 text-amber-500" />
                     {getStarDisplay(repo)}
                   </span>
