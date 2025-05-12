@@ -244,7 +244,14 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip content={<CustomTooltip />} animationDuration={0} />
-              <Legend />
+              <Legend
+                payload={repoNames.map((repo) => ({
+                  value: repo,
+                  type: "square",
+                  id: repo,
+                  color: getRepoColor(repo),
+                }))}
+              />
               {/* Render areas in the same order as the table (by total stars desc) */}
               {[...repoNames].reverse().map((repo) => (
                 <Area
