@@ -160,10 +160,11 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
           {label ? new Date(label).toLocaleDateString() : ""}
         </p>
         <div className="tooltip-list space-y-1.5">
-          <TransitionGroup component={null}>
+          <TransitionGroup component="ul" className="list-none p-0 m-0">
             {reposAtDate.map((entry) => {
-              // Create a ref for each item for CSSTransition
-              const nodeRef = createRef<HTMLDivElement>();
+              const nodeRef = createRef<HTMLLIElement>();
+              const displayValue = entry.value;
+              const showPlus = timeRange === "year" && displayValue > 0;
               return (
                 <CSSTransition
                   key={entry.dataKey}
@@ -171,27 +172,17 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                   timeout={300}
                   classNames="tooltip-item"
                 >
-                  {(state) => {
-                    const displayValue =
-                      state === "exiting" || state === "exited"
-                        ? 0
-                        : entry.value;
-                    const showPlus = timeRange === "year" && displayValue > 0;
-
-                    return (
-                      <div ref={nodeRef} className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-sm"
-                          style={{ backgroundColor: entry.color }}
-                        />
-                        <span className="text-sm">
-                          {entry.dataKey}: {showPlus ? "+" : ""}
-                          {displayValue.toLocaleString()}{" "}
-                          {Math.abs(displayValue) === 1 ? "star" : "stars"}
-                        </span>
-                      </div>
-                    );
-                  }}
+                  <li ref={nodeRef} className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-sm"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-sm">
+                      {entry.dataKey}: {showPlus ? "+" : ""}
+                      {displayValue.toLocaleString()}{" "}
+                      {Math.abs(displayValue) === 1 ? "star" : "stars"}
+                    </span>
+                  </li>
                 </CSSTransition>
               );
             })}
