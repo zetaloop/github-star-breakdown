@@ -96,11 +96,20 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
       }
     });
 
-    // Convert 0 values to null so that recharts does not render the area and its edge line when data is 0
-    stackedData.forEach((dp) => {
-      repos.forEach((repo) => {
-        if ((dp[repo] as number) === 0) dp[repo] = null;
-      });
+    // Convert initial zeros to null but keep one zero before first non-zero to smooth transition
+    repos.forEach((repo) => {
+      const firstIdx = stackedData.findIndex((dp) => (dp[repo] as number) > 0);
+      if (firstIdx > 0) {
+        for (let i = 0; i < firstIdx; i++) {
+          // keep last zero before data starts, hide earlier zeros
+          stackedData[i][repo] = i === firstIdx - 1 ? 0 : null;
+        }
+      } else if (firstIdx === -1) {
+        // repo never appears, hide all
+        stackedData.forEach((dp) => {
+          dp[repo] = null;
+        });
+      }
     });
     return stackedData;
   }, [starHistory]);
