@@ -25,19 +25,6 @@ interface RepoStarChartProps {
   timeRange: "year" | "all";
 }
 
-// Generate a pseudo-random color based on repository name for consistent coloring
-const getRepoColor = (repoName: string): string => {
-  let hash = 0;
-  for (let i = 0; i < repoName.length; i++) {
-    hash = repoName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  // Use the hash to generate a hue between 0 and 360
-  // Limit saturation and lightness for better visibility
-  const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 70%, 50%)`;
-};
-
 interface ChartDataPoint {
   date: string;
   [key: string]: string | number | null;
@@ -132,6 +119,17 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
       .sort((a, b) => b.stars - a.stars)
       .map((item) => item.repo);
   }, [chartData]);
+
+  // Generate a color map for each repository using the golden angle
+  const colorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const goldenAngle = 137.50776405003785;
+    repoNames.forEach((repo, idx) => {
+      const hue = (idx * goldenAngle) % 360;
+      map.set(repo, `hsl(${hue.toFixed(2)},65%,55%)`);
+    });
+    return map;
+  }, [repoNames]);
 
   interface TooltipPayloadEntry {
     dataKey: string;
@@ -249,7 +247,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                   value: repo,
                   type: "square",
                   id: repo,
-                  color: getRepoColor(repo),
+                  color: colorMap.get(repo)!,
                 }))}
               />
               {/* Render areas in the same order as the table (by total stars desc) */}
@@ -260,8 +258,8 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                   dataKey={repo}
                   name={repo}
                   stackId="1"
-                  stroke={getRepoColor(repo)}
-                  fill={getRepoColor(repo)}
+                  stroke={colorMap.get(repo)!}
+                  fill={colorMap.get(repo)!}
                   fillOpacity={0.6}
                   isAnimationActive={false} // Disable animation
                 />
