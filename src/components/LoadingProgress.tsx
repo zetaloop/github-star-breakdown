@@ -1,41 +1,39 @@
 import React, { useRef, useEffect } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
-import { cn } from "@/lib/utils"; // Import cn for conditional classes
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface LoadingProgressProps {
   totalRepos: number;
   processedRepos: number;
-  log: Array<{ name: string; status: string }>; // Use log prop
+  log: Array<{ name: string; status: string }>;
 }
 
 const LoadingProgress: React.FC<LoadingProgressProps> = ({
   totalRepos,
   processedRepos,
-  log, // Destructure log prop
+  log,
 }) => {
   const progressPercentage =
     totalRepos > 0 ? (processedRepos / totalRepos) * 100 : 0;
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll immediately to the bottom of the log
+  // Effect to automatically scroll the log area to the bottom when new logs arrive
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector(
-      "div[data-radix-scroll-area-viewport]" // Use the data attribute selector for the viewport
+      "div[data-radix-scroll-area-viewport]" // Target the viewport element of Radix ScrollArea
     );
     if (viewport) {
-      // Use requestAnimationFrame to ensure scrolling happens after render and DOM update
+      // Use rAF to ensure scrolling happens after the DOM update
       requestAnimationFrame(() => {
-        // Set scrollTop directly for immediate jump
-        viewport.scrollTop = viewport.scrollHeight;
+        viewport.scrollTop = viewport.scrollHeight; // Jump to bottom
       });
     }
-  }, [log]); // Scroll when log updates
+  }, [log]); // Dependency array ensures this runs when the log state changes
 
   return (
     <div className="space-y-4">
-      {/* Overall Progress */}
       <div className="space-y-2">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>
@@ -46,7 +44,6 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
         <Progress value={progressPercentage} className="w-full" />
       </div>
 
-      {/* Detailed Log */}
       <ScrollArea
         className="h-48 w-full rounded-md border p-4 bg-muted/40"
         ref={scrollAreaRef}
@@ -55,46 +52,39 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           {log.map((entry, index) => (
             <p
               key={index}
-              // Remove animation class
               className="text-xs font-mono whitespace-pre-wrap break-words"
             >
               <span
                 className={cn(
-                  "mr-1", // Add some spacing
+                  "mr-1",
                   entry.status.startsWith("✅") ? "text-green-500" : "",
                   entry.status.startsWith("❌") ? "text-red-500" : ""
                 )}
               >
                 [{index + 1}/{totalRepos}]
               </span>
-              <span className="font-semibold mr-1">{entry.name}:</span>{" "}
-              {/* Bold repo name */}
+              <span className="font-semibold mr-1">{entry.name}:</span>
               <span>{entry.status}</span>
             </p>
           ))}
-          {log.length === 0 &&
-            totalRepos > 0 && ( // Initial message before first log entry
-              <p className="text-xs font-mono text-muted-foreground animate-pulse pt-1">
-                Starting fetch process...
-              </p>
-            )}
+          {log.length === 0 && totalRepos > 0 && (
+            <p className="text-xs font-mono text-muted-foreground animate-pulse pt-1">
+              Starting fetch process...
+            </p>
+          )}
         </div>
       </ScrollArea>
 
-      {/* Skeleton placeholders - Abstract list style with more pronounced staggered animation */}
-      {/* Increased spacing (space-y-4) and removed border-t */}
+      {/* Skeleton placeholders mimicking a list with staggered animation */}
       <div className="space-y-4 mt-4 pt-4">
-        {/* Create 7 simpler horizontal bar skeletons */}
         {[...Array(7)].map((_, index) => (
           <Skeleton
             key={index}
-            className="h-5 w-full animate-enhanced-pulse" // Use the custom animation class
-            // Apply more pronounced staggered animation delay
-            style={{ animationDelay: `${index * 0.3}s` }} // Increased delay increment
+            className="h-5 w-full animate-enhanced-pulse" // Uses custom enhanced pulse animation
+            style={{ animationDelay: `${index * 0.15}s` }} // Staggered delay for cascade effect
           />
         ))}
       </div>
-      {/* Second skeleton block is removed as requested */}
     </div>
   );
 };

@@ -4,7 +4,7 @@ import ApiKeyForm from "./ApiKeyForm";
 import UserRepoSearch from "./UserRepoSearch";
 import RepoStarChart from "./RepoStarChart";
 import RepoStatsTable from "./RepoStatsTable";
-import LoadingProgress from "./LoadingProgress"; // Import the new component
+import LoadingProgress from "./LoadingProgress";
 import {
   GitHubRepo,
   GitHubStargazer,
@@ -16,7 +16,6 @@ import {
   processRepoStarHistory,
   getGitHubToken,
 } from "@/services/github";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -34,13 +33,12 @@ const GitHubStarTracker: React.FC = () => {
   const [yearlyIncrements, setYearlyIncrements] = useState<Map<string, number>>(
     new Map()
   );
-  // --- Progress State ---
   const [totalReposToProcess, setTotalReposToProcess] = useState<number>(0);
   const [processedReposCount, setProcessedReposCount] = useState<number>(0);
+  // State to store the log messages during loading
   const [loadingLog, setLoadingLog] = useState<
     Array<{ name: string; status: string }>
-  >([]); // Log for detailed progress
-  // --- End Progress State ---
+  >([]);
 
   const handleSearch = async (
     usernameInput: string,
@@ -50,15 +48,14 @@ const GitHubStarTracker: React.FC = () => {
     setError(null);
     setUsername(usernameInput);
     setCurrentTimeRange(timeRangeInput);
-    setStarHistory([]); // Clear previous results
+    setStarHistory([]);
     setRepos([]);
     setYearlyIncrements(new Map());
     setTotalReposToProcess(0);
     setProcessedReposCount(0);
-    setLoadingLog([]); // Reset log
+    setLoadingLog([]);
 
     try {
-      // Calculate date cutoff for API requests
       const now = new Date();
       const sinceDate =
         timeRangeInput === "year"
@@ -69,7 +66,6 @@ const GitHubStarTracker: React.FC = () => {
             ).toISOString()
           : undefined;
 
-      // Fetch repositories (already filtered for repos with stars > 0)
       const userRepos = await fetchUserRepos(usernameInput);
       setRepos(userRepos);
 
@@ -79,22 +75,20 @@ const GitHubStarTracker: React.FC = () => {
         return;
       }
 
-      // Fetch stargazers for each repository (in parallel)
       const stargazersMap = new Map<string, GitHubStargazer[]>();
 
-      // We limit to avoid hitting rate limits - GitHub API has strict rate limits
-      const reposToProcess = userRepos.slice(0, 30); // Limit processing
+      // Limit to avoid hitting rate limits (GitHub API has strict limits)
+      const reposToProcess = userRepos.slice(0, 30);
 
-      // --- Initialize Progress ---
+      // Initialize progress state
       setTotalReposToProcess(reposToProcess.length);
       setProcessedReposCount(0);
-      // --- End Initialize Progress ---
 
       toast.info(
         `Fetching star data for ${reposToProcess.length} repositories...`
       );
 
-      // Use Promise.all for parallel fetching
+      // Fetch stargazers for each repo in parallel
       await Promise.all(
         reposToProcess.map(async (repo) => {
           let status = "";
@@ -106,19 +100,17 @@ const GitHubStarTracker: React.FC = () => {
             stargazersMap.set(repo.full_name, stargazers);
             status = `✅ Fetched ${stargazers.length} stars`;
           } catch (error: unknown) {
-            // Use unknown type for error
             console.error(
               `Error fetching stargazers for ${repo.full_name}:`,
               error
             );
-            // Check if error is an instance of Error to safely access message
             if (error instanceof Error) {
               status = `❌ Error: ${error.message}`;
             } else {
               status = `❌ Error: Failed to fetch (Unknown error)`;
             }
           } finally {
-            // Update log and count atomically
+            // Update log and processed count after each fetch attempt
             setLoadingLog((prevLog) => [
               ...prevLog,
               { name: repo.full_name, status: status },
@@ -128,7 +120,7 @@ const GitHubStarTracker: React.FC = () => {
         })
       );
 
-      // Process data into time-series format for the chart
+      // Process the fetched data for chart and table
       const processedStarHistory = processRepoStarHistory(
         reposToProcess,
         stargazersMap,
@@ -136,7 +128,7 @@ const GitHubStarTracker: React.FC = () => {
       );
       setStarHistory(processedStarHistory);
 
-      // Calculate yearly increments if timeRange is "year"
+      // Calculate yearly increments if needed
       const newYearlyIncrements = new Map<string, number>();
       if (timeRangeInput === "year") {
         processedStarHistory.forEach((item) => {
@@ -185,11 +177,12 @@ const GitHubStarTracker: React.FC = () => {
             <LoadingProgress
               totalRepos={totalReposToProcess}
               processedRepos={processedReposCount}
-              log={loadingLog} // Pass the log
+              log={loadingLog} // Pass log data to the progress component
             />
           ) : (
-            username && // Only show results if a search has been performed
-            (starHistory.length > 0 || repos.length > 0) && ( // Show table even if no star history in range
+            // Render results only after a search and if data exists
+            username &&
+            (starHistory.length > 0 || repos.length > 0) && (
               <div className="space-y-6">
                 {starHistory.length > 0 ? (
                   <RepoStarChart
@@ -197,13 +190,14 @@ const GitHubStarTracker: React.FC = () => {
                     timeRange={currentTimeRange}
                   />
                 ) : (
+                  // Show message if no star history for the selected range
                   !error && (
                     <p>
                       No star history data to display for the selected range.
                     </p>
-                  ) // Show message if no chart data
+                  )
                 )}
-                {/* Always show table if repos were found */}
+                {/* Always show the table if repositories were found */}
                 <RepoStatsTable
                   repos={repos}
                   timeRange={currentTimeRange}
