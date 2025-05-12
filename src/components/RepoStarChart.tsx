@@ -172,17 +172,25 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                   timeout={300}
                   classNames="tooltip-item"
                 >
-                  <li ref={nodeRef} className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-sm"
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-sm">
-                      {entry.dataKey}: {showPlus ? "+" : ""}
-                      {displayValue.toLocaleString()}{" "}
-                      {Math.abs(displayValue) === 1 ? "star" : "stars"}
-                    </span>
-                  </li>
+                  {(state: string) => {
+                    const fadingOut = state === "exiting" || state === "exited";
+                    const value = fadingOut ? 0 : entry.value;
+                    const showPlus =
+                      !fadingOut && timeRange === "year" && value > 0;
+                    return (
+                      <li ref={nodeRef} className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-sm"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="text-sm">
+                          {entry.dataKey}: {showPlus ? "+" : ""}
+                          {value.toLocaleString()}{" "}
+                          {Math.abs(value) === 1 ? "star" : "stars"}
+                        </span>
+                      </li>
+                    );
+                  }}
                 </CSSTransition>
               );
             })}
