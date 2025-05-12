@@ -89,4 +89,23 @@
     /* Use the new keyframes */
     animation: enhanced-pulse 2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
   }
+
+  /* Ensure Chart Container has positioning and higher z-index */
+  div[data-chart] {
+    position: relative;
+    z-index: 10;
+  }
+
+  /* Allow Recharts container to not clip Tooltip */
+  .recharts-responsive-container,
+  .recharts-wrapper {
+    overflow: visible !important;
+  }
+
+  /* Elevate Tooltip wrapper level to ensure it displays above other elements */
+  .recharts-tooltip-wrapper {
+    overflow: visible !important;
+    position: absolute !important;
+    z-index: 20 !important;
+  }
 }

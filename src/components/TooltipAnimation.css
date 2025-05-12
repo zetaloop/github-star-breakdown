@@ -31,3 +31,16 @@
 .tooltip-list {
     transition: height 0.2s ease-in-out;
 }
+
+/* 确保 Recharts 图表容器不裁剪 tooltip */
+.recharts-responsive-container,
+.recharts-wrapper {
+    overflow: visible !important;
+}
+
+/* 提升 tooltip wrapper 层级，确保其在其他元素之上 */
+.recharts-tooltip-wrapper {
+    overflow: visible !important;
+    position: absolute !important;
+    z-index: 9999 !important;
+}
