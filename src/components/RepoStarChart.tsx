@@ -231,7 +231,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
               <Tooltip content={<CustomTooltip />} animationDuration={0} />
               <Legend />
               {/* Render areas in the same order as the table (by total stars desc) */}
-              {repoNames.map((repo) => (
+              {[...repoNames].reverse().map((repo) => (
                 <Area
                   key={repo}
                   type="linear" // Use linear interpolation to avoid misalignment caused by smoothing algorithm
