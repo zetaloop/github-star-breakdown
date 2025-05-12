@@ -234,13 +234,14 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
               {repoNames.map((repo) => (
                 <Area
                   key={repo}
-                  type="monotone"
+                  type="linear" // Use linear interpolation to avoid misalignment caused by smoothing algorithm
                   dataKey={repo}
                   name={repo}
                   stackId="1"
                   stroke={getRepoColor(repo)}
                   fill={getRepoColor(repo)}
                   fillOpacity={0.6}
+                  isAnimationActive={false} // Disable animation
                 />
               ))}
             </AreaChart>
