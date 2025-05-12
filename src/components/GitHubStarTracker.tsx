@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { toast } from "sonner";
 import ApiKeyForm from "./ApiKeyForm";
 import UserRepoSearch from "./UserRepoSearch";
@@ -12,12 +12,16 @@ import {
 } from "@/types/github";
 import {
   fetchUserRepos,
-  fetchRepoStargazers,
   processRepoStarHistory,
   getGitHubToken,
+  fetchRepoStargazersFirstPage,
+  fetchRemainingStargazersOptimized,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+
+// Define the type for the loading stages
+type LoadingStage = 0 | 1 | 2 | null;
 
 const GitHubStarTracker: React.FC = () => {
   const [hasValidToken, setHasValidToken] =
@@ -33,130 +37,284 @@ const GitHubStarTracker: React.FC = () => {
   const [yearlyIncrements, setYearlyIncrements] = useState<Map<string, number>>(
     new Map()
   );
-  const [totalReposToProcess, setTotalReposToProcess] = useState<number>(0);
-  const [processedReposCount, setProcessedReposCount] = useState<number>(0);
-  // State to store the log messages during loading
+  // State for tracking progress across stages
+  const [totalItemsToProcess, setTotalItemsToProcess] = useState<number>(0); // Renamed for generic use across stages
+  const [processedItemsCount, setProcessedItemsCount] = useState<number>(0); // Renamed for generic use across stages
   const [loadingLog, setLoadingLog] = useState<
     Array<{ name: string; status: string }>
   >([]);
+  // New state for tracking the current loading stage
+  const [currentStage, setCurrentStage] = useState<LoadingStage>(null); // null: idle, 0: fetching repos, 1: initial scan, 2: deep scan
 
-  const handleSearch = async (
-    usernameInput: string,
-    timeRangeInput: "year" | "all"
-  ) => {
-    setIsLoading(true);
-    setError(null);
-    setUsername(usernameInput);
-    setCurrentTimeRange(timeRangeInput);
-    setStarHistory([]);
-    setRepos([]);
-    setYearlyIncrements(new Map());
-    setTotalReposToProcess(0);
-    setProcessedReposCount(0);
-    setLoadingLog([]);
+  const handleSearch = useCallback(
+    async (usernameInput: string, timeRangeInput: "year" | "all") => {
+      setIsLoading(true);
+      setError(null);
+      setUsername(usernameInput);
+      setCurrentTimeRange(timeRangeInput);
+      setStarHistory([]);
+      setRepos([]);
+      setYearlyIncrements(new Map());
+      // Reset progress for Stage 0
+      setCurrentStage(0); // Start at stage 0: Fetching repository list
+      setTotalItemsToProcess(1); // Initial estimate (e.g., 1 page), will be updated by onProgress
+      setProcessedItemsCount(0);
+      setLoadingLog([
+        { name: "Stage 0", status: "🔍 Fetching repository list..." },
+      ]);
 
-    try {
-      const now = new Date();
-      const sinceDate =
-        timeRangeInput === "year"
-          ? new Date(
-              now.getFullYear() - 1,
-              now.getMonth(),
-              now.getDate()
-            ).toISOString()
-          : undefined;
+      try {
+        const now = new Date();
+        // This sinceDate is ONLY for client-side filtering in processRepoStarHistory
+        const sinceDateForFiltering =
+          timeRangeInput === "year"
+            ? new Date(
+                now.getFullYear() - 1,
+                now.getMonth(),
+                now.getDate()
+              ).toISOString()
+            : undefined;
 
-      const userRepos = await fetchUserRepos(usernameInput);
-      setRepos(userRepos);
-
-      if (userRepos.length === 0) {
-        toast.info("No public repositories with stars found for this user.");
-        setIsLoading(false);
-        return;
-      }
-
-      const stargazersMap = new Map<string, GitHubStargazer[]>();
-
-      // Limit to avoid hitting rate limits (GitHub API has strict limits)
-      const reposToProcess = userRepos.slice(0, 30);
-
-      // Initialize progress state
-      setTotalReposToProcess(reposToProcess.length);
-      setProcessedReposCount(0);
-
-      toast.info(
-        `Fetching star data for ${reposToProcess.length} repositories...`
-      );
-
-      // Fetch stargazers for each repo in parallel
-      await Promise.all(
-        reposToProcess.map(async (repo) => {
-          let status = "";
-          try {
-            const stargazers = await fetchRepoStargazers(
-              repo.full_name,
-              sinceDate
-            );
-            stargazersMap.set(repo.full_name, stargazers);
-            status = `✅ Fetched ${stargazers.length} stars`;
-          } catch (error: unknown) {
-            console.error(
-              `Error fetching stargazers for ${repo.full_name}:`,
-              error
-            );
-            if (error instanceof Error) {
-              status = `❌ Error: ${error.message}`;
-            } else {
-              status = `❌ Error: Failed to fetch (Unknown error)`;
+        // STAGE 0: Fetching User Repos with progress
+        const userRepos = await fetchUserRepos(
+          usernameInput,
+          (processedPages, totalPages) => {
+            // Update progress for stage 0 (fetching repo list pages)
+            setProcessedItemsCount(processedPages);
+            if (totalPages) {
+              setTotalItemsToProcess(totalPages); // Update total based on actual pages
             }
-          } finally {
-            // Update log and processed count after each fetch attempt
-            setLoadingLog((prevLog) => [
-              ...prevLog,
-              { name: repo.full_name, status: status },
-            ]);
-            setProcessedReposCount((prevCount) => prevCount + 1);
+            // Update log message for Stage 0 progress
+            setLoadingLog((prev) => {
+              const logEntry = `🔍 Fetching repository list... Page ${processedPages}${totalPages ? `/${totalPages}` : ""}`;
+              // Avoid duplicate stage 0 entries if possible, update the last one
+              if (prev.length > 0 && prev[prev.length - 1].name === "Stage 0") {
+                const updatedLog = [...prev];
+                updatedLog[updatedLog.length - 1] = {
+                  name: "Stage 0",
+                  status: logEntry,
+                };
+                return updatedLog;
+              }
+              // Otherwise, add a new entry (should ideally not happen often if initial log is set)
+              return [...prev, { name: "Stage 0", status: logEntry }];
+            });
           }
-        })
-      );
-
-      // Process the fetched data for chart and table
-      const processedStarHistory = processRepoStarHistory(
-        reposToProcess,
-        stargazersMap,
-        timeRangeInput
-      );
-      setStarHistory(processedStarHistory);
-
-      // Calculate yearly increments if needed
-      const newYearlyIncrements = new Map<string, number>();
-      if (timeRangeInput === "year") {
-        processedStarHistory.forEach((item) => {
-          newYearlyIncrements.set(
-            item.repoName,
-            (newYearlyIncrements.get(item.repoName) || 0) + item.stars
-          );
-        });
-      }
-      setYearlyIncrements(newYearlyIncrements);
-
-      if (processedStarHistory.length === 0 && timeRangeInput === "year") {
-        toast.info(
-          "No star data found for the selected time range (last year)."
         );
-      } else if (processedStarHistory.length === 0) {
-        toast.info("No star data found.");
+
+        if (userRepos.length === 0) {
+          toast.info("No public repositories with stars found for this user.");
+          setCurrentStage(null); // Reset stage
+          setIsLoading(false);
+          return;
+        }
+
+        setRepos(userRepos);
+        // Limit to avoid hitting rate limits (GitHub API has strict limits)
+        const reposToProcess = userRepos.slice(0, 30); // Consider making this configurable
+
+        // STAGE 1: Initializing for first page fetch
+        setCurrentStage(1); // Move to stage 1: Initial scan
+        setTotalItemsToProcess(reposToProcess.length); // For Stage 1: total repos
+        setProcessedItemsCount(0); // Reset for Stage 1: processed repos
+        setLoadingLog((prev) => [
+          ...prev,
+          {
+            name: "Stage 1",
+            status: `📊 Starting initial scan of ${reposToProcess.length} repos...`,
+          },
+        ]);
+        toast.info(
+          `Fetching first page of stars for ${reposToProcess.length} repositories...`
+        );
+
+        const incompleteRepos: GitHubRepo[] = [];
+        const stargazersMap = new Map<string, GitHubStargazer[]>();
+
+        await Promise.all(
+          reposToProcess.map(async (repo) => {
+            let statusMsg = "";
+            try {
+              // Call fetchRepoStargazersFirstPage WITHOUT sinceDate
+              const { stargazers: firstPageStars, incomplete } =
+                await fetchRepoStargazersFirstPage(repo.full_name); // REMOVED sinceDate
+
+              stargazersMap.set(repo.full_name, firstPageStars);
+
+              if (!incomplete) {
+                statusMsg = `✅ Fetched ${firstPageStars.length} stars (complete)`;
+              } else {
+                statusMsg = `🔄 Fetched ${firstPageStars.length} stars... more pages pending`;
+                incompleteRepos.push(repo);
+              }
+            } catch (err) {
+              console.error(
+                `Error fetching first page for ${repo.full_name}:`,
+                err
+              );
+              statusMsg = `❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`;
+            } finally {
+              // Update Stage 1 progress
+              setProcessedItemsCount((prev) => prev + 1);
+              // Add log entry for this specific repo in stage 1
+              setLoadingLog((prev) => [
+                ...prev,
+                { name: repo.full_name, status: statusMsg },
+              ]);
+            }
+          })
+        );
+
+        // STAGE 2: Deep scan for incomplete repos
+        if (incompleteRepos.length > 0) {
+          setCurrentStage(2); // Move to stage 2: Deep scan
+          toast.info(
+            `Optimizing load for ${incompleteRepos.length} large repositories...`
+          );
+
+          // Calculate total pages needed for stage 2 more accurately
+          let totalPagesToProcessForStage2 = 0;
+          for (const repo of incompleteRepos) {
+            const firstPageStarsCount =
+              stargazersMap.get(repo.full_name)?.length || 0;
+            // Ensure stargazers_count is a valid number before calculation
+            const totalStars =
+              typeof repo.stargazers_count === "number"
+                ? repo.stargazers_count
+                : 0;
+
+            if (totalStars > firstPageStarsCount) {
+              const remainingStars = totalStars - firstPageStarsCount;
+              // GitHub API returns max 100 per page for stargazers
+              totalPagesToProcessForStage2 += Math.ceil(remainingStars / 100);
+            } else if (firstPageStarsCount === 100 && totalStars <= 100) {
+              // If first page was full but total count suggests no more, maybe add 1 page check just in case?
+              // Or rely on fetchRemainingStargazersOptimized to handle this. Let's assume 0 for now.
+              // If API is inconsistent, fetchRemaining might still fetch page 2.
+              // Adding 1 might overestimate if the count was exactly 100.
+              // Let's refine: only add pages if remainingStars > 0
+            }
+          }
+
+          // Handle edge case where calculation results in 0 pages but there are incomplete repos
+          // This might happen if stargazers_count is missing or inaccurate
+          if (
+            totalPagesToProcessForStage2 === 0 &&
+            incompleteRepos.length > 0
+          ) {
+            console.warn(
+              "Calculated 0 pages for stage 2, but have incomplete repos. Estimating 1 page per repo."
+            );
+            totalPagesToProcessForStage2 = incompleteRepos.length; // Fallback estimate
+          }
+
+          setTotalItemsToProcess(totalPagesToProcessForStage2); // For Stage 2: total pages
+          setProcessedItemsCount(0); // Reset for Stage 2: processed pages
+          setLoadingLog((prev) => [
+            ...prev,
+            {
+              name: "Stage 2",
+              status: `📗 Starting deep scan of ${incompleteRepos.length} repos (${totalPagesToProcessForStage2} estimated pages)`,
+            },
+          ]);
+
+          await Promise.all(
+            incompleteRepos.map(async (repo) => {
+              let extraStars: GitHubStargazer[] = [];
+              try {
+                // Call fetchRemainingStargazersOptimized WITHOUT sinceDate and WITH onProgress callback
+                extraStars = await fetchRemainingStargazersOptimized(
+                  repo.full_name,
+                  2, // Start from page 2
+                  repo.stargazers_count, // Re-added totalRepoStars (optional number)
+                  () => {
+                    // onProgress callback now correctly at the 4th position
+                    // Update progress for stage 2 (fetching stargazer pages)
+                    // This callback is invoked for each successfully fetched page
+                    setProcessedItemsCount((prev) => prev + 1);
+                  }
+                );
+
+                const currentStars = stargazersMap.get(repo.full_name) || [];
+                stargazersMap.set(repo.full_name, [
+                  ...currentStars,
+                  ...extraStars,
+                ]);
+                // Log completion for this repo in stage 2
+                setLoadingLog((prev) => [
+                  ...prev,
+                  {
+                    name: repo.full_name,
+                    status: `✅ Full data loaded (${(currentStars?.length || 0) + extraStars.length} stars)`,
+                  },
+                ]);
+              } catch (err) {
+                console.error(`Error in deep scan for ${repo.full_name}:`, err);
+                // Log error for this repo in stage 2
+                setLoadingLog((prev) => [
+                  ...prev,
+                  {
+                    name: repo.full_name,
+                    status: `❌ Error loading remaining pages: ${err instanceof Error ? err.message : "Unknown error"}`,
+                  },
+                ]);
+              }
+              // REMOVED finally block for page counting here, as it's handled by onProgress
+            })
+          );
+        }
+
+        // FINAL PROCESSING: Process the aggregated star data using sinceDateForFiltering
+        const processedStarHistory = processRepoStarHistory(
+          reposToProcess, // Use the list of repos actually processed
+          stargazersMap,
+          timeRangeInput // Pass the original time range selection
+          // sinceDateForFiltering is handled internally by processRepoStarHistory based on timeRange
+        );
+        setStarHistory(processedStarHistory);
+
+        // Calculate yearly increments if needed
+        const newYearlyIncrements = new Map<string, number>();
+        if (timeRangeInput === "year") {
+          processedStarHistory.forEach((item) => {
+            newYearlyIncrements.set(
+              item.repoName,
+              (newYearlyIncrements.get(item.repoName) || 0) + item.stars
+            );
+          });
+        }
+        setYearlyIncrements(newYearlyIncrements);
+
+        // Provide feedback based on results
+        if (processedStarHistory.length === 0 && timeRangeInput === "year") {
+          toast.info(
+            "No star data found for the selected time range (last year)."
+          );
+        } else if (
+          processedStarHistory.length === 0 &&
+          reposToProcess.length > 0
+        ) {
+          // This case might be less common now with multi-stage loading,
+          // but good to keep for edge cases (e.g., all repos had 0 stars).
+          toast.info("No star data found for the selected criteria.");
+        } else if (reposToProcess.length > 0) {
+          toast.success("Star history analysis complete!");
+        }
+      } catch (error) {
+        console.error("Error analyzing repositories:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        setError(
+          `Failed to fetch data from GitHub API: ${errorMessage}. Please check the username, API token, and network connection.`
+        );
+        toast.error("Error fetching GitHub data");
+      } finally {
+        setIsLoading(false);
+        setCurrentStage(null); // Reset stage on completion or error
       }
-    } catch (error) {
-      console.error("Error analyzing repositories:", error);
-      setError(
-        "Failed to fetch data from GitHub API. Please check the username and try again."
-      );
-      toast.error("Error fetching GitHub data");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    []
+  ); // Add dependencies if needed, e.g., if using external state not passed as args
 
   return (
     <div className="space-y-6">
@@ -173,15 +331,17 @@ const GitHubStarTracker: React.FC = () => {
             </Alert>
           )}
 
-          {isLoading ? (
+          {isLoading && currentStage !== null ? ( // Check currentStage is not null
             <LoadingProgress
-              totalRepos={totalReposToProcess}
-              processedRepos={processedReposCount}
-              log={loadingLog} // Pass log data to the progress component
+              // Pass original prop names and isStage2 based on currentStage
+              totalRepos={totalItemsToProcess}
+              processedRepos={processedItemsCount}
+              log={loadingLog}
+              currentStage={currentStage} // Pass the currentStage prop
             />
           ) : (
-            // Render results only after a search and if data exists
             username &&
+            !isLoading && // Ensure loading is false before showing results
             (starHistory.length > 0 || repos.length > 0) && (
               <div className="space-y-6">
                 {starHistory.length > 0 ? (
@@ -190,19 +350,23 @@ const GitHubStarTracker: React.FC = () => {
                     timeRange={currentTimeRange}
                   />
                 ) : (
-                  // Show message if no star history for the selected range
-                  !error && (
-                    <p>
+                  // Show message only if loading is finished, there was no error,
+                  // repos were found, but no star history for the range exists.
+                  !error &&
+                  repos.length > 0 && (
+                    <p className="text-center text-muted-foreground">
                       No star history data to display for the selected range.
                     </p>
                   )
                 )}
-                {/* Always show the table if repositories were found */}
-                <RepoStatsTable
-                  repos={repos}
-                  timeRange={currentTimeRange}
-                  yearlyIncrements={yearlyIncrements}
-                />
+                {/* Show table if repos were found, even if star history is empty */}
+                {repos.length > 0 && (
+                  <RepoStatsTable
+                    repos={repos} // Pass all initially fetched repos for the table
+                    timeRange={currentTimeRange}
+                    yearlyIncrements={yearlyIncrements}
+                  />
+                )}
               </div>
             )
           )}
