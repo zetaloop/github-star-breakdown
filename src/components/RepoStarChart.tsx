@@ -121,15 +121,15 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
   }, [chartData]);
 
   // Generate a color map for each repository using the golden angle
-  const colorMap = useMemo(() => {
-    const map = new Map<string, string>();
+  const getRepoColor = (repoName: string): string => {
+    let hash = 0;
+    for (let i = 0; i < repoName.length; i++) {
+      hash = repoName.charCodeAt(i) + ((hash << 5) - hash);
+    }
     const goldenAngle = 137.50776405003785;
-    repoNames.forEach((repo, idx) => {
-      const hue = (idx * goldenAngle) % 360;
-      map.set(repo, `hsl(${hue.toFixed(2)},65%,55%)`);
-    });
-    return map;
-  }, [repoNames]);
+    const hue = (Math.abs(hash) * goldenAngle) % 360;
+    return `hsl(${hue.toFixed(2)},65%,55%)`;
+  };
 
   interface TooltipPayloadEntry {
     dataKey: string;
@@ -247,7 +247,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                   value: repo,
                   type: "square",
                   id: repo,
-                  color: colorMap.get(repo)!,
+                  color: getRepoColor(repo),
                 }))}
               />
               {/* Render areas in the same order as the table (by total stars desc) */}
@@ -258,8 +258,8 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                   dataKey={repo}
                   name={repo}
                   stackId="1"
-                  stroke={colorMap.get(repo)!}
-                  fill={colorMap.get(repo)!}
+                  stroke={getRepoColor(repo)}
+                  fill={getRepoColor(repo)}
                   fillOpacity={0.6}
                   isAnimationActive={false} // Disable animation
                 />
