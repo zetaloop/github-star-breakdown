@@ -1,4 +1,4 @@
-import { useMemo, useRef, createRef } from "react";
+import { useMemo, createRef } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -164,7 +164,6 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
             {reposAtDate.map((entry) => {
               const nodeRef = createRef<HTMLLIElement>();
               const displayValue = entry.value;
-              const showPlus = timeRange === "year" && displayValue > 0;
               return (
                 <CSSTransition
                   key={entry.dataKey}
