@@ -40,7 +40,7 @@ const getRepoColor = (repoName: string): string => {
 
 interface ChartDataPoint {
   date: string;
-  [key: string]: string | number;
+  [key: string]: string | number | null;
 }
 
 const RepoStarChart: React.FC<RepoStarChartProps> = ({
@@ -96,6 +96,12 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
       }
     });
 
+    // Convert 0 values to null so that recharts does not render the area and its edge line when data is 0
+    stackedData.forEach((dp) => {
+      repos.forEach((repo) => {
+        if ((dp[repo] as number) === 0) dp[repo] = null;
+      });
+    });
     return stackedData;
   }, [starHistory]);
 
