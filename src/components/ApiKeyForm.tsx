@@ -69,10 +69,12 @@ const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ onTokenValidated }) => {
             <Label htmlFor="github-token">GitHub Personal Access Token</Label>
             <Input
               id="github-token"
-              type="password"
+              type="text"
               placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
               value={token}
               onChange={(e) => setToken(e.target.value)}
+              autoComplete="off"
+              style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
             />
             <p className="text-sm text-muted-foreground">
               <a

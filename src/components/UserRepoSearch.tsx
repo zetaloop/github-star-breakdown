@@ -36,6 +36,8 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="pl-8"
+              type="text"
+              autoComplete="off"
             />
           </div>
           <Button
