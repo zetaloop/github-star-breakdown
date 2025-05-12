@@ -32,13 +32,13 @@
     transition: height 0.2s ease-in-out;
 }
 
-/* 确保 Recharts 图表容器不裁剪 tooltip */
+/* Ensure Recharts chart container does not clip tooltip */
 .recharts-responsive-container,
 .recharts-wrapper {
     overflow: visible !important;
 }
 
-/* 提升 tooltip wrapper 层级，确保其在其他元素之上 */
+/* Elevate tooltip wrapper level to ensure it displays above other elements */
 .recharts-tooltip-wrapper {
     overflow: visible !important;
     position: absolute !important;
