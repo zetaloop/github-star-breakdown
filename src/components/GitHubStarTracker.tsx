@@ -15,7 +15,6 @@ import {
   processRepoStarHistory,
   getGitHubToken,
   fetchRepoStargazersFirstPage,
-  fetchRemainingStargazersOptimized,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
