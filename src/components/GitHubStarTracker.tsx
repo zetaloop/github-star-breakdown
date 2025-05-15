@@ -15,6 +15,7 @@ import {
   processRepoStarHistory,
   getGitHubToken,
   fetchRepoStargazersFirstPage,
+  RateLimitError, // Import the custom error
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -317,12 +318,23 @@ const GitHubStarTracker: React.FC = () => {
         }
       } catch (error) {
         console.error("Error analyzing repositories:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        setError(
-          `Failed to fetch data from GitHub API: ${errorMessage}. Please check the username, API token, and network connection.`
-        );
-        toast.error("Error fetching GitHub data");
+        if (error instanceof RateLimitError) {
+          setError(
+            `Rate Limit: ${error.message} Please wait and try again later.`
+          );
+          toast.error("Rate Limit", {
+            description: error.message,
+          });
+        } else {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+          setError(
+            `Failed to fetch data from GitHub API: ${errorMessage}. Please check the username, API token, and network connection.`
+          );
+          toast.error("Error fetching GitHub data", {
+            description: errorMessage,
+          });
+        }
       } finally {
         setIsLoading(false);
         setCurrentStage(null); // Reset stage on completion or error

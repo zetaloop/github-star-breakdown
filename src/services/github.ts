@@ -4,6 +4,18 @@ import {
   RepoStarHistoryItem,
 } from "@/types/github";
 
+// Custom error for rate limiting
+export class RateLimitError extends Error {
+  public resetTimestamp?: number; // Unix timestamp (seconds) when the rate limit resets
+
+  constructor(message: string, resetTimestamp?: number) {
+    super(message);
+    this.name = "RateLimitError";
+    this.resetTimestamp = resetTimestamp;
+    Object.setPrototypeOf(this, RateLimitError.prototype);
+  }
+}
+
 // Utility to get GitHub token from localStorage
 export const getGitHubToken = (): string | null => {
   return localStorage.getItem("github_token");
@@ -77,7 +89,18 @@ export const fetchUserRepos = async (
     { headers }
   );
   if (!firstResp.ok) {
-    throw new Error(`GitHub API Error: ${firstResp.status}`);
+    if (firstResp.status === 403) {
+      const reset = firstResp.headers.get("X-RateLimit-Reset");
+      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+      let message = "GitHub API rate limit exceeded.";
+      if (resetTimestamp) {
+        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+      }
+      throw new RateLimitError(message, resetTimestamp);
+    }
+    throw new Error(
+      `GitHub API Error: ${firstResp.status} - ${firstResp.statusText}`
+    );
   }
   const linkHeader = firstResp.headers.get("Link");
   if (linkHeader) {
@@ -112,7 +135,18 @@ export const fetchUserRepos = async (
         { headers }
       );
       if (!resp.ok) {
-        throw new Error(`GitHub API Error: ${resp.status}`);
+        if (resp.status === 403) {
+          const reset = resp.headers.get("X-RateLimit-Reset");
+          const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+          let message = `GitHub API rate limit exceeded while fetching page ${page}.`;
+          if (resetTimestamp) {
+            message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+          }
+          throw new RateLimitError(message, resetTimestamp);
+        }
+        throw new Error(
+          `GitHub API Error: ${resp.status} - ${resp.statusText} while fetching page ${page}`
+        );
       }
       const repos: GitHubRepo[] = await resp.json();
       const filtered = repos.filter(
@@ -148,12 +182,17 @@ export const fetchRepoStargazersFirstPage = async (
   if (!response.ok) {
     // Handle rate limiting specifically
     if (response.status === 403) {
-      console.warn(`Rate limited fetching first page for ${repoFullName}`);
-      // Depending on requirements, you might want to return empty or throw a specific error
-      return { stargazers: [], incomplete: true }; // Assume incomplete if rate limited
+      const reset = response.headers.get("X-RateLimit-Reset");
+      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+      let message = `GitHub API rate limit exceeded fetching first page for ${repoFullName}.`;
+      if (resetTimestamp) {
+        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+      }
+      // Instead of returning, throw RateLimitError to be caught by the caller
+      throw new RateLimitError(message, resetTimestamp);
     }
     throw new Error(
-      `GitHub API Error fetching first page for ${repoFullName}: ${response.status}`
+      `GitHub API Error fetching first page for ${repoFullName}: ${response.status} - ${response.statusText}`
     );
   }
   const firstPageData: GitHubStargazer[] = await response.json();
@@ -186,11 +225,17 @@ export const fetchStargazersInRange = async (
     const resp = await fetch(url, { headers });
     if (!resp.ok) {
       if (resp.status === 403) {
-        console.warn(`Rate limited at page ${page} for ${repoFullName}`);
-        return { stars: [], pageNewest: null, pageOldest: null };
+        const reset = resp.headers.get("X-RateLimit-Reset");
+        const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+        let message = `GitHub API rate limit exceeded at page ${page} for ${repoFullName}.`;
+        if (resetTimestamp) {
+          message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+        }
+        // Instead of returning, throw RateLimitError
+        throw new RateLimitError(message, resetTimestamp);
       }
       throw new Error(
-        `Error fetching page ${page} for ${repoFullName}: ${resp.status}`
+        `Error fetching page ${page} for ${repoFullName}: ${resp.status} - ${resp.statusText}`
       );
     }
     const stars: GitHubStargazer[] = await resp.json();
