@@ -51,12 +51,11 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       barColorClass = "bg-gray-400"; // Gray color for initial repo list fetching
       if (currentStage === 0 && totalRepos === 0) {
         // Total pages unknown
-        progressText = `Fetching repository list... (Processed ${processedRepos} page(s), total unknown)`;
+        progressText = `Fetching repository list...`;
         logPrefixFn = (index) => `[Repo Page ${index + 1}]`;
       } else {
         // Total pages known
-        const remainingPages = totalRepos - processedRepos;
-        progressText = `Fetching repository list... ${processedRepos}/${totalRepos} pages (Remaining: ${remainingPages > 0 ? remainingPages : 0})`;
+        progressText = `Fetching repository list... ${processedRepos}/${totalRepos} pages`;
         logPrefixFn = (index, total) => `[Repo Page ${index + 1}/${total}]`;
       }
       break;
