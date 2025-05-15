@@ -22,8 +22,10 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   log,
   currentStage,
 }) => {
+  // When totalRepos is 0 (e.g. total pages unknown in stage 0), progressPercentage will be 0.
   const progressPercentage =
     totalRepos > 0 ? (processedRepos / totalRepos) * 100 : 0;
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Effect to automatically scroll the log area to the bottom when new logs arrive
@@ -47,8 +49,16 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   switch (currentStage) {
     case 0: // Stage 0: Fetching repository list pages
       barColorClass = "bg-gray-400"; // Gray color for initial repo list fetching
-      progressText = `Fetching repository list... (${processedRepos} / ${totalRepos} pages processed)`;
-      logPrefixFn = (index, total) => `[Repo Page ${index + 1}/${total}]`;
+      if (currentStage === 0 && totalRepos === 0) {
+        // Total pages unknown
+        progressText = `Fetching repository list... (Processed ${processedRepos} page(s), total unknown)`;
+        logPrefixFn = (index) => `[Repo Page ${index + 1}]`;
+      } else {
+        // Total pages known
+        const remainingPages = totalRepos - processedRepos;
+        progressText = `Fetching repository list... ${processedRepos}/${totalRepos} pages (Remaining: ${remainingPages > 0 ? remainingPages : 0})`;
+        logPrefixFn = (index, total) => `[Repo Page ${index + 1}/${total}]`;
+      }
       break;
     case 1: // Stage 1: Fetching first page of stars for each repo
       barColorClass = "bg-blue-500"; // Blue color for fetching initial stars
@@ -77,7 +87,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
         {/* Apply dynamic color class to Progress bar */}
         <Progress
           value={progressPercentage}
-          className={cn("w-full", barColorClass)}
+          className={cn("w-full", barColorClass)} // Removed animate-indeterminate-progress
         />
       </div>
 

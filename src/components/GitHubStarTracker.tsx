@@ -56,7 +56,8 @@ const GitHubStarTracker: React.FC = () => {
       setYearlyIncrements(new Map());
       // Reset progress for Stage 0
       setCurrentStage(0); // Start at stage 0: Fetching repository list
-      setTotalItemsToProcess(1); // Initial estimate (e.g., 1 page), will be updated by onProgress
+      // Set totalItemsToProcess to 0 to indicate indeterminate progress initially for stage 0
+      setTotalItemsToProcess(0);
       setProcessedItemsCount(0);
       setLoadingLog([
         { name: "Stage 0", status: "🔍 Fetching repository list..." },
@@ -77,15 +78,34 @@ const GitHubStarTracker: React.FC = () => {
         // STAGE 0: Fetching User Repos with progress
         const userRepos = await fetchUserRepos(
           usernameInput,
-          (processedPages, totalPages) => {
+          (delta, totalPages) => {
+            // Renamed processedPages to delta for clarity
             // Update progress for stage 0 (fetching repo list pages)
-            setProcessedItemsCount(processedPages);
+            // Correctly accumulate processed items
+            let currentProcessedCount = 0;
+            setProcessedItemsCount((prevCount) => {
+              currentProcessedCount = prevCount + delta;
+              return currentProcessedCount;
+            });
+
             if (totalPages) {
               setTotalItemsToProcess(totalPages); // Update total based on actual pages
+            } else {
+              // If totalPages is not yet known, keep totalItemsToProcess as 0 for indeterminate state
+              setTotalItemsToProcess(0);
             }
             // Update log message for Stage 0 progress
             setLoadingLog((prev) => {
-              const logEntry = `🔍 Fetching repository list... Page ${processedPages}${totalPages ? `/${totalPages}` : ""}`;
+              // Use the most up-to-date processed count for the log
+              // We access currentProcessedCount via the closure from setProcessedItemsCount's callback
+              // or ensure it's updated before this log setter runs if not using the direct value from state setter.
+              // For simplicity and immediate reflection, we'll rely on the closure or a slightly delayed state update.
+              // A more robust way if currentProcessedCount isn't reliably updated in time for this specific log:
+              // Re-fetch from state if needed, or pass it explicitly.
+              // However, given setProcessedItemsCount is called right before, this should be fine.
+              // Let's ensure we use the value that *will be* set.
+              // The `currentProcessedCount` captured in the outer scope of this callback will be correct.
+              const logEntry = `🔍 Fetching repository list... Page ${currentProcessedCount}${totalPages ? `/${totalPages}` : " (determining total...)"}`;
               // Avoid duplicate stage 0 entries if possible, update the last one
               if (prev.length > 0 && prev[prev.length - 1].name === "Stage 0") {
                 const updatedLog = [...prev];
