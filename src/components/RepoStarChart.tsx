@@ -120,15 +120,87 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
       .map((item) => item.repo);
   }, [chartData]);
 
-  // Generate a color map for each repository using the golden angle
-  const getRepoColor = (repoName: string): string => {
-    let hash = 0;
-    for (let i = 0; i < repoName.length; i++) {
-      hash = repoName.charCodeAt(i) + ((hash << 5) - hash);
+  // Basic color palette with handpicked colors
+  const BASE_PALETTE = [
+    "#4C51BF", // Indigo
+    "#E53E3E", // Red
+    "#38A169", // Green
+    "#D69E2E", // Gold
+    "#805AD5", // Purple
+    "#3182CE", // Blue
+    "#DD6B20", // Orange
+    "#319795", // Teal
+    "#D53F8C", // Pink
+    "#718096", // Gray
+    "#2C7A7B", // Cyan
+    "#975A16", // Brown
+  ];
+  // Helper to convert HEX to HSL
+  const hexToHSL = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) {
+        h = (g - b) / d + (g < b ? 6 : 0);
+      } else if (max === g) {
+        h = (b - r) / d + 2;
+      } else {
+        h = (r - g) / d + 4;
+      }
+      h /= 6;
     }
-    const goldenAngle = 137.50776405003785;
-    const hue = (Math.abs(hash) * goldenAngle) % 360;
-    return `hsl(${hue.toFixed(2)},65%,55%)`;
+    return {
+      h: Math.round(h * 360),
+      s: Math.round(s * 100),
+      l: Math.round(l * 100),
+    };
+  };
+  // Generate infinite harmonious colors with enhanced variation
+  const getRepoColor = (repoName: string): string => {
+    // Generate hash from repository name
+    let hash = 0;
+    for (const ch of repoName) {
+      hash = ch.charCodeAt(0) + ((hash << 5) - hash);
+    }
+    hash = Math.abs(hash);
+
+    // Use palette color as base
+    const idx = hash % BASE_PALETTE.length;
+    const { h: baseH, s: baseS, l: baseL } = hexToHSL(BASE_PALETTE[idx]);
+
+    // Generate variants using different hash derivatives
+    const variant = Math.floor(hash / BASE_PALETTE.length);
+
+    // Create more color variation with multiple hash bits
+    const hashPart1 = hash & 0xff;
+    const hashPart2 = (hash >> 8) & 0xff;
+    const hashPart3 = (hash >> 16) & 0xff;
+
+    // Apply hue shift
+    const hueRange = 20;
+    const hueShift = (hashPart1 % (hueRange * 2)) - hueRange;
+    const hue = (baseH + hueShift + 360) % 360;
+
+    // Apply saturation variation
+    const satRange = 100;
+    const satShift = (hashPart2 % (satRange * 2)) - satRange;
+    const saturation = Math.min(95, Math.max(45, baseS + satShift));
+
+    // Apply lightness variation
+    const lightRange = 10;
+    const lightShift = (hashPart3 % (lightRange * 2)) - lightRange;
+    const lightness = Math.min(75, Math.max(35, baseL + lightShift));
+
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
   interface TooltipPayloadEntry {
