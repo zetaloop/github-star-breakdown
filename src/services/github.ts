@@ -84,7 +84,7 @@ export const fetchUserRepos = async (
     const links = linkHeader.split(",");
     const lastPageLink = links.find((link) => link.includes('rel="last"'));
     if (lastPageLink) {
-      const match = lastPageLink.match(/page=(\d+)/);
+      const match = lastPageLink.match(/[?&]page=(\d+)/);
       if (match) {
         totalPages = parseInt(match[1], 10);
       }
