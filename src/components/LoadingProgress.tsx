@@ -43,12 +43,14 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
 
   // Determine bar color and text based on the current stage
   let barColorClass = "";
+  let barBgClass = "";
   let progressText = "";
   let logPrefixFn: (index: number, total: number) => string;
 
   switch (currentStage) {
     case 0: // Stage 0: Fetching repository list pages
       barColorClass = "bg-gray-400"; // Gray color for initial repo list fetching
+      barBgClass = "bg-secondary"; // Default background for the first stage
       if (currentStage === 0 && totalRepos === 0) {
         // Total pages unknown
         progressText = `Fetching repository list...`;
@@ -61,17 +63,20 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       break;
     case 1: // Stage 1: Fetching first page of stars for each repo
       barColorClass = "bg-blue-500"; // Blue color for fetching initial stars
-      progressText = `Fetching first page of stars... (${processedRepos} / ${totalRepos} repositories processed)`;
+      barBgClass = "bg-gray-400"; // Background is the previous stage's bar color
+      progressText = `Fetching first page of stars... ${processedRepos}/${totalRepos} repos`;
       logPrefixFn = (index, total) => `[Repo ${index + 1}/${total}]`;
       break;
     case 2: // Stage 2: Loading remaining star pages
       barColorClass = "bg-green-500"; // Green color for loading remaining star pages
-      progressText = `Loading remaining pages... (${processedRepos} / ${totalRepos} pages processed)`;
+      barBgClass = "bg-blue-500"; // Background is the previous stage's bar color
+      progressText = `Loading remaining pages... ${processedRepos}/${totalRepos} pages`;
       // For stage 2, the log index doesn't directly map to total pages, so we don't show total.
       logPrefixFn = (index) => `[Star Page ${index + 1}]`;
       break;
     default: // Default case (should not happen with TypeScript)
-      barColorClass = "bg-gray-400";
+      barColorClass = "bg-primary";
+      barBgClass = "bg-secondary";
       progressText = "Processing...";
       logPrefixFn = (index) => `[${index + 1}]`;
   }
@@ -80,13 +85,12 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="flex justify-between text-sm text-muted-foreground">
-          {/* Display dynamic progress text */}
           <span>{progressText}</span>
         </div>
-        {/* Apply dynamic color class to Progress bar */}
         <Progress
           value={progressPercentage}
-          className={cn("w-full", barColorClass)} // Removed animate-indeterminate-progress
+          indicatorColor={barColorClass}
+          backgroundColor={barBgClass}
         />
       </div>
 
