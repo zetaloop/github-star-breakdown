@@ -88,6 +88,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           <span>{progressText}</span>
         </div>
         <Progress
+          key={currentStage} // Force re-render on stage change
           value={progressPercentage}
           indicatorColor={barColorClass}
           backgroundColor={barBgClass}
