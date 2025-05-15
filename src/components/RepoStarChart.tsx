@@ -235,7 +235,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                 tick={{ fontSize: 12 }}
                 tickFormatter={(date) => {
                   const d = new Date(date);
-                  return `${d.getMonth() + 1}/${d.getFullYear() % 100}`;
+                  return `${d.getFullYear() % 100}/${d.getMonth() + 1}`;
                 }}
               />
               <YAxis tick={{ fontSize: 12 }} />
