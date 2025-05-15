@@ -315,6 +315,8 @@ const GitHubStarTracker: React.FC = () => {
           toast.info("No star data found for the selected criteria.");
         } else if (reposToProcess.length > 0) {
           toast.success("Star history analysis complete!");
+          // Let the user take a look at the beautiful 100% progress
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error) {
         console.error("Error analyzing repositories:", error);
