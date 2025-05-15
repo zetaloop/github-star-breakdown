@@ -174,40 +174,30 @@ const GitHubStarTracker: React.FC = () => {
 
           // Calculate total pages needed for stage 2 more accurately
           let totalPagesToProcessForStage2 = 0;
+          // Map repo name to its page range
+          const repoPageMap: Record<string, { start: number; end: number }> =
+            {};
           for (const repo of incompleteRepos) {
             const firstPageStarsCount =
               stargazersMap.get(repo.full_name)?.length || 0;
-            // Ensure stargazers_count is a valid number before calculation
             const totalStars =
               typeof repo.stargazers_count === "number"
                 ? repo.stargazers_count
                 : 0;
-
             if (totalStars > firstPageStarsCount) {
               const remainingStars = totalStars - firstPageStarsCount;
-              // GitHub API returns max 100 per page for stargazers
-              totalPagesToProcessForStage2 += Math.ceil(remainingStars / 100);
-            } else if (firstPageStarsCount === 100 && totalStars <= 100) {
-              // If first page was full but total count suggests no more, maybe add 1 page check just in case?
-              // Or rely on fetchRemainingStargazersOptimized to handle this. Let's assume 0 for now.
-              // If API is inconsistent, fetchRemaining might still fetch page 2.
-              // Adding 1 might overestimate if the count was exactly 100.
-              // Let's refine: only add pages if remainingStars > 0
+              const startPage = 2;
+              const endPage = Math.ceil(totalStars / 100);
+              totalPagesToProcessForStage2 += endPage - startPage + 1;
+              repoPageMap[repo.full_name] = { start: startPage, end: endPage };
             }
           }
-
-          // Handle edge case where calculation results in 0 pages but there are incomplete repos
-          // This might happen if stargazers_count is missing or inaccurate
           if (
             totalPagesToProcessForStage2 === 0 &&
             incompleteRepos.length > 0
           ) {
-            console.warn(
-              "Calculated 0 pages for stage 2, but have incomplete repos. Estimating 1 page per repo."
-            );
-            totalPagesToProcessForStage2 = incompleteRepos.length; // Fallback estimate
+            totalPagesToProcessForStage2 = incompleteRepos.length;
           }
-
           setTotalItemsToProcess(totalPagesToProcessForStage2); // For Stage 2: total pages
           setProcessedItemsCount(0); // Reset for Stage 2: processed pages
           setLoadingLog((prev) => [
@@ -218,50 +208,56 @@ const GitHubStarTracker: React.FC = () => {
             },
           ]);
 
-          await Promise.all(
-            incompleteRepos.map(async (repo) => {
-              let extraStars: GitHubStargazer[] = [];
-              try {
-                // Call fetchRemainingStargazersOptimized WITHOUT sinceDate and WITH onProgress callback
-                extraStars = await fetchRemainingStargazersOptimized(
-                  repo.full_name,
-                  2, // Start from page 2
-                  repo.stargazers_count, // Re-added totalRepoStars (optional number)
-                  () => {
-                    // onProgress callback now correctly at the 4th position
-                    // Update progress for stage 2 (fetching stargazer pages)
-                    // This callback is invoked for each successfully fetched page
-                    setProcessedItemsCount((prev) => prev + 1);
-                  }
-                );
-
-                const currentStars = stargazersMap.get(repo.full_name) || [];
-                stargazersMap.set(repo.full_name, [
-                  ...currentStars,
-                  ...extraStars,
-                ]);
-                // Log completion for this repo in stage 2
-                setLoadingLog((prev) => [
-                  ...prev,
-                  {
-                    name: repo.full_name,
-                    status: `✅ Full data loaded (${(currentStars?.length || 0) + extraStars.length} stars)`,
-                  },
-                ]);
-              } catch (err) {
-                console.error(`Error in deep scan for ${repo.full_name}:`, err);
-                // Log error for this repo in stage 2
-                setLoadingLog((prev) => [
-                  ...prev,
-                  {
-                    name: repo.full_name,
-                    status: `❌ Error loading remaining pages: ${err instanceof Error ? err.message : "Unknown error"}`,
-                  },
-                ]);
-              }
-              // REMOVED finally block for page counting here, as it's handled by onProgress
-            })
+          // Import concurrency pool and fetchStargazersInRange
+          const { ConcurrencyPool, fetchStargazersInRange } = await import(
+            "@/services/github"
           );
+          const pool = new ConcurrencyPool(50);
+          const promises: Promise<void>[] = [];
+          for (const repo of incompleteRepos) {
+            const pageInfo = repoPageMap[repo.full_name];
+            if (!pageInfo) continue;
+            const stars: GitHubStargazer[] = [];
+            promises.push(
+              (async () => {
+                try {
+                  await fetchStargazersInRange(
+                    repo.full_name,
+                    pageInfo.start,
+                    pageInfo.end,
+                    pool,
+                    (delta = 1) => {
+                      setProcessedItemsCount((prev) => prev + delta);
+                    },
+                    (pageStars) => {
+                      stars.push(...pageStars);
+                    }
+                  );
+                  const currentStars = stargazersMap.get(repo.full_name) || [];
+                  stargazersMap.set(repo.full_name, [
+                    ...currentStars,
+                    ...stars,
+                  ]);
+                  setLoadingLog((prev) => [
+                    ...prev,
+                    {
+                      name: repo.full_name,
+                      status: `✅ Full data loaded (${(currentStars?.length || 0) + stars.length} stars)`,
+                    },
+                  ]);
+                } catch (err) {
+                  setLoadingLog((prev) => [
+                    ...prev,
+                    {
+                      name: repo.full_name,
+                      status: `❌ Error loading remaining pages: ${err instanceof Error ? err.message : "Unknown error"}`,
+                    },
+                  ]);
+                }
+              })()
+            );
+          }
+          await Promise.all(promises);
         }
 
         // FINAL PROCESSING: Process the aggregated star data using sinceDateForFiltering

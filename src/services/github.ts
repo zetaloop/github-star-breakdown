@@ -19,68 +19,115 @@ export const clearGitHubToken = (): void => {
   localStorage.removeItem("github_token");
 };
 
-// Function to fetch a user's public repositories
+// ConcurrencyPool: A simple concurrency limiter for async tasks (max concurrency = limit)
+export class ConcurrencyPool {
+  private queue: Array<() => Promise<void>> = [];
+  private activeCount = 0;
+  private limit: number;
+  private allDone: (() => void)[] = [];
+  private donePromise: Promise<void>;
+
+  constructor(limit: number) {
+    this.limit = limit;
+    this.donePromise = new Promise((resolve) => this.allDone.push(resolve));
+  }
+
+  add(taskFunc: () => Promise<void>) {
+    this.queue.push(taskFunc);
+    this.runNext();
+  }
+
+  private runNext() {
+    if (this.activeCount < this.limit && this.queue.length > 0) {
+      const taskFunc = this.queue.shift()!;
+      this.activeCount++;
+      taskFunc().finally(() => {
+        this.activeCount--;
+        this.runNext();
+        if (this.activeCount === 0 && this.queue.length === 0) {
+          this.allDone.forEach((cb) => cb());
+        }
+      });
+    }
+  }
+
+  async awaitAll() {
+    if (this.activeCount === 0 && this.queue.length === 0) return;
+    await this.donePromise;
+  }
+}
+
+// Function to fetch a user's public repositories (concurrent version)
 export const fetchUserRepos = async (
   username: string,
   onProgress?: (processedDelta: number, totalPages?: number) => void // Optional callback for progress updates
 ): Promise<GitHubRepo[]> => {
   const token = getGitHubToken();
   const headers = token ? { Authorization: `token ${token}` } : {};
+  const perPage = 100;
+  const concurrencyLimit = 50;
+  const pool = new ConcurrencyPool(concurrencyLimit);
+  let allRepos: GitHubRepo[] = [];
+  let totalPages: number | undefined = undefined;
+  let processedPages = 0;
 
-  try {
-    // GitHub API returns maximum 100 repositories per page, so we need to handle pagination
-    let page = 1;
-    let allRepos: GitHubRepo[] = [];
-    let hasMoreRepos = true;
-    let totalPages: number | undefined = undefined; // Store total pages if available
+  // Fetch the first page synchronously to get total pages
+  const firstResp = await fetch(
+    `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=1&sort=updated`,
+    { headers }
+  );
+  if (!firstResp.ok) {
+    throw new Error(`GitHub API Error: ${firstResp.status}`);
+  }
+  const linkHeader = firstResp.headers.get("Link");
+  if (linkHeader) {
+    const links = linkHeader.split(",");
+    const lastPageLink = links.find((link) => link.includes('rel="last"'));
+    if (lastPageLink) {
+      const match = lastPageLink.match(/page=(\d+)/);
+      if (match) {
+        totalPages = parseInt(match[1], 10);
+      }
+    }
+  }
+  const firstPageRepos: GitHubRepo[] = await firstResp.json();
+  const filteredFirst = firstPageRepos.filter(
+    (repo) => !repo.fork && repo.stargazers_count > 0
+  );
+  allRepos = [...allRepos, ...filteredFirst];
+  processedPages++;
+  if (onProgress) onProgress(1, totalPages);
 
-    while (hasMoreRepos) {
-      const response = await fetch(
-        `https://api.github.com/users/${username}/repos?per_page=100&page=${page}&sort=updated`,
+  // If only one page, return
+  if (!totalPages || totalPages === 1) {
+    return allRepos;
+  }
+
+  // Fetch remaining pages concurrently
+  const results: GitHubRepo[][] = Array(totalPages - 1);
+  for (let page = 2; page <= totalPages; page++) {
+    pool.add(async () => {
+      const resp = await fetch(
+        `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
         { headers }
       );
-
-      if (!response.ok) {
-        throw new Error(`GitHub API Error: ${response.status}`);
+      if (!resp.ok) {
+        throw new Error(`GitHub API Error: ${resp.status}`);
       }
-
-      // Try to parse Link header for total pages (more reliable)
-      const linkHeader = response.headers.get("Link");
-      if (linkHeader && !totalPages) {
-        const links = linkHeader.split(",");
-        const lastPageLink = links.find((link) => link.includes('rel="last"'));
-        if (lastPageLink) {
-          const match = lastPageLink.match(/page=(\d+)/);
-          if (match) {
-            totalPages = parseInt(match[1], 10);
-          }
-        }
-      }
-
-      const repos: GitHubRepo[] = await response.json();
-
-      // Call progress callback after fetching a page
-      if (onProgress) {
-        onProgress(1, totalPages); // Pass 1 for delta, and totalPages if known
-      }
-
-      // Filter out forks and repos with 0 stars as they don't count towards user's stars
-      const filteredRepos = repos.filter(
+      const repos: GitHubRepo[] = await resp.json();
+      const filtered = repos.filter(
         (repo) => !repo.fork && repo.stargazers_count > 0
       );
-      allRepos = [...allRepos, ...filteredRepos];
-
-      // Check if we got the maximum items per page (indicating there might be more)
-      // Or check if we have reached the last page based on Link header
-      hasMoreRepos = repos.length === 100 && (!totalPages || page < totalPages);
-      page++;
-    }
-
-    return allRepos;
-  } catch (error) {
-    console.error("Error fetching repositories:", error);
-    throw error;
+      results[page - 2] = filtered;
+      if (onProgress) onProgress(1, totalPages);
+    });
   }
+  await pool.awaitAll();
+  // Flatten and merge all results
+  for (const arr of results) {
+    if (arr) allRepos.push(...arr);
+  }
+  return allRepos;
 };
 
 // Function to fetch stargazers for a repository (original, kept for potential reference or specific use cases)
@@ -272,7 +319,7 @@ export const fetchRemainingStargazersOptimized = async (
     // If the *entire page* consists of stars from the *same day*, AND that day is the *same* as `currentDay`
     // (the oldest day we were processing from the *previous* page), it implies this day spans multiple pages.
     // The user's plan suggests continuing without changing `currentDay` in this scenario.
-    // This doesn't strictly *skip* API calls based on the snippet, but it avoids updating `currentDay`,
+    // This doesn't strictly *skip* API calls based on the snippet, but it avoids updating the `currentDay`,
     // effectively grouping consecutive pages of the same day together.
     if (
       newestStarDateOnPage === oldestStarDateOnPage &&
@@ -299,6 +346,79 @@ export const fetchRemainingStargazersOptimized = async (
   }
 
   return allAdditionalStars;
+};
+
+// Parallel binary search and fetch for stargazers in a given date range, with concurrency pool and skip logic
+export const fetchStargazersInRange = async (
+  repoFullName: string,
+  startPage: number, // usually 2
+  endPage: number, // total pages for this repo
+  pool: ConcurrencyPool,
+  onProgress: (delta?: number) => void,
+  saveStars: (stars: GitHubStargazer[]) => void,
+  since?: Date,
+  until?: Date
+) => {
+  // Helper to fetch a single page and return stargazers + date range
+  const token = getGitHubToken();
+  if (!token) throw new Error("GitHub token is required");
+  const headers = {
+    Authorization: `token ${token}`,
+    Accept: "application/vnd.github.star+json",
+  };
+  const fetchPage = async (page: number) => {
+    const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=${page}`;
+    const resp = await fetch(url, { headers });
+    if (!resp.ok) {
+      if (resp.status === 403) {
+        console.warn(`Rate limited at page ${page} for ${repoFullName}`);
+        return { stars: [], pageNewest: null, pageOldest: null };
+      }
+      throw new Error(
+        `Error fetching page ${page} for ${repoFullName}: ${resp.status}`
+      );
+    }
+    const stars: GitHubStargazer[] = await resp.json();
+    if (stars.length === 0) {
+      return { stars, pageNewest: null, pageOldest: null };
+    }
+    const pageNewest = new Date(stars[0].starred_at);
+    const pageOldest = new Date(stars[stars.length - 1].starred_at);
+    return { stars, pageNewest, pageOldest };
+  };
+
+  // Recursive binary search with parallelism
+  const recur = async (s: number, e: number): Promise<void> => {
+    if (s > e) return;
+    const mid = Math.floor((s + e) / 2);
+    await pool.add(async () => {
+      const { stars, pageNewest, pageOldest } = await fetchPage(mid);
+      onProgress(); // Always count this page as processed
+      if (!stars.length || !pageNewest || !pageOldest) return;
+      // If the page is entirely too new (all stars newer than `until`), skip left side pages [s..mid-1]
+      if (until && pageNewest > until) {
+        const skipped = mid - s;
+        if (skipped > 0) onProgress(skipped);
+        await recur(mid + 1, e);
+        return;
+      }
+      // If the page is entirely too old (all stars older than `since`), skip right side pages [mid+1..e]
+      if (since && pageOldest < since) {
+        const skipped = e - mid;
+        if (skipped > 0) onProgress(skipped);
+        await recur(s, mid - 1);
+        return;
+      }
+      // This page has data in range
+      saveStars(stars);
+      // Recurse both sides in parallel
+      const left = s < mid ? recur(s, mid - 1) : Promise.resolve();
+      const right = mid < e ? recur(mid + 1, e) : Promise.resolve();
+      await Promise.all([left, right]);
+    });
+  };
+  await recur(startPage, endPage);
+  await pool.awaitAll();
 };
 
 // Process repositories and stargazers into time series data for charting
