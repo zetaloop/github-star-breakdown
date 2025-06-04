@@ -13,7 +13,7 @@ import { Star } from "lucide-react";
 
 interface RepoStatsTableProps {
   repos: GitHubRepo[];
-  timeRange: "year" | "all";
+  timeRange: "year" | "all" | "custom";
   yearlyIncrements?: Map<string, number>;
 }
 
@@ -23,7 +23,7 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
   yearlyIncrements,
 }) => {
   const sortedRepos = [...repos].sort((a, b) => {
-    if (timeRange === "year" && yearlyIncrements) {
+    if ((timeRange === "year" || timeRange === "custom") && yearlyIncrements) {
       const incrementA = yearlyIncrements.get(a.name) || 0;
       const incrementB = yearlyIncrements.get(b.name) || 0;
       if (incrementB !== incrementA) {
@@ -48,14 +48,14 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
   });
 
   const reposToDisplay =
-    timeRange === "year" && yearlyIncrements
+    (timeRange === "year" || timeRange === "custom") && yearlyIncrements
       ? sortedRepos.filter(
           (repo) => (yearlyIncrements.get(repo.name) || 0) !== 0
         )
       : sortedRepos;
 
   const getStarDisplay = (repo: GitHubRepo) => {
-    if (timeRange === "year" && yearlyIncrements) {
+    if ((timeRange === "year" || timeRange === "custom") && yearlyIncrements) {
       const increment = yearlyIncrements.get(repo.name) || 0;
       // Already filtered out 0, so increment here will be > 0 or < 0
       if (increment > 0) {
@@ -74,7 +74,11 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
             <TableHead>Repository</TableHead>
             <TableHead>Language</TableHead>
             <TableHead className="text-left">
-              {timeRange === "year" ? "Stars (Last Year)" : "Stars (Total)"}
+              {timeRange === "year"
+                ? "Stars (Last Year)"
+                : timeRange === "custom"
+                  ? "Stars (Range)"
+                  : "Stars (Total)"}
             </TableHead>
             <TableHead>Created</TableHead>
           </TableRow>
@@ -83,8 +87,8 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
           {reposToDisplay.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className="text-center py-4">
-                {timeRange === "year"
-                  ? "No repositories with star changes in the last year."
+                {timeRange === "year" || timeRange === "custom"
+                  ? "No repositories with star changes in the selected range."
                   : "No repositories found."}
               </TableCell>
             </TableRow>

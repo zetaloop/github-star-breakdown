@@ -21,7 +21,7 @@ import "./TooltipAnimation.css";
 
 interface RepoStarChartProps {
   starHistory: RepoStarHistoryItem[];
-  timeRange: "year" | "all";
+  timeRange: "year" | "all" | "custom";
 }
 
 interface ChartDataPoint {
@@ -264,7 +264,9 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                     const fadingOut = state === "exiting" || state === "exited";
                     const value = fadingOut ? 0 : entry.value;
                     const showPlus =
-                      !fadingOut && timeRange === "year" && value > 0;
+                      !fadingOut &&
+                      (timeRange === "year" || timeRange === "custom") &&
+                      value > 0;
                     return (
                       <li ref={nodeRef} className="flex items-center gap-2">
                         <div
@@ -336,7 +338,9 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
         <CardDescription>
           {timeRange === "year"
             ? "Cumulative star growth over the last year"
-            : "Cumulative star contribution of each repository over time"}
+            : timeRange === "custom"
+              ? "Cumulative star growth for selected range"
+              : "Cumulative star contribution of each repository over time"}
         </CardDescription>
       </CardHeader>
       <CardContent>
