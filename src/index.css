@@ -76,17 +76,14 @@
   }
 }
 
-/* Custom pulse animation with more contrast */
 @layer utilities {
   @keyframes enhanced-pulse {
     50% {
       opacity: 0;
-      /* Lower opacity for more contrast */
     }
   }
 
   .animate-enhanced-pulse {
-    /* Use the new keyframes */
     animation: enhanced-pulse 2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
   }
 

@@ -4,77 +4,68 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-// Define the possible stages
 type LoadingStage = 0 | 1 | 2;
 
-// Updated interface to use currentStage
 interface LoadingProgressProps {
-  totalRepos: number; // Represents total pages in stage 0, total repos in stage 1, total star pages in stage 2
-  processedRepos: number; // Represents processed pages/repos/star pages based on stage
+  totalRepos: number;
+  processedRepos: number;
   log: Array<{ name: string; status: string }>;
-  currentStage: LoadingStage; // Use a specific type for the stage
+  currentStage: LoadingStage;
 }
 
-// Updated component implementation to handle three stages
 const LoadingProgress: React.FC<LoadingProgressProps> = ({
   totalRepos,
   processedRepos,
   log,
   currentStage,
 }) => {
-  // When totalRepos is 0 (e.g. total pages unknown in stage 0), progressPercentage will be 0.
   const progressPercentage =
     totalRepos > 0 ? (processedRepos / totalRepos) * 100 : 0;
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Effect to automatically scroll the log area to the bottom when new logs arrive
+  // Auto-scroll log area when new entries appear
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector(
-      "div[data-radix-scroll-area-viewport]" // Target the viewport element of Radix ScrollArea
+      "div[data-radix-scroll-area-viewport]"
     );
     if (viewport) {
-      // Use rAF to ensure scrolling happens after the DOM update
       requestAnimationFrame(() => {
-        viewport.scrollTop = viewport.scrollHeight; // Jump to bottom
+        viewport.scrollTop = viewport.scrollHeight;
       });
     }
   }, [log]);
 
-  // Determine bar color and text based on the current stage
   let barColorClass = "";
   let barBgClass = "";
   let progressText = "";
   let logPrefixFn: (index: number, total: number) => string;
 
   switch (currentStage) {
-    case 0: // Stage 0: Fetching repository list pages
-      barColorClass = "bg-gray-400"; // Gray color for initial repo list fetching
-      barBgClass = "bg-secondary"; // Default background for the first stage
+    case 0:
+      barColorClass = "bg-gray-400";
+      barBgClass = "bg-secondary";
       if (currentStage === 0 && totalRepos === 0) {
-        // Total pages unknown
         progressText = `Fetching repository list...`;
         logPrefixFn = (index) => `[Repo Page ${index + 1}]`;
       } else {
-        // Total pages known
         progressText = `Fetching repository list... ${processedRepos}/${totalRepos} pages`;
         logPrefixFn = (index, total) => `[Repo Page ${index + 1}/${total}]`;
       }
       break;
-    case 1: // Stage 1: Fetching first page of stars for each repo
-      barColorClass = "bg-blue-500"; // Blue color for fetching initial stars
-      barBgClass = "bg-gray-400"; // Background is the previous stage's bar color
+    case 1:
+      barColorClass = "bg-blue-500";
+      barBgClass = "bg-gray-400";
       progressText = `Fetching first page of stars... ${processedRepos}/${totalRepos} repos`;
       logPrefixFn = (index, total) => `[Repo ${index + 1}/${total}]`;
       break;
-    case 2: // Stage 2: Loading remaining star pages
-      barColorClass = "bg-green-500"; // Green color for loading remaining star pages
-      barBgClass = "bg-blue-500"; // Background is the previous stage's bar color
+    case 2:
+      barColorClass = "bg-green-500";
+      barBgClass = "bg-blue-500";
       progressText = `Loading remaining pages... ${processedRepos}/${totalRepos} pages`;
-      // For stage 2, the log index doesn't directly map to total pages, so we don't show total.
       logPrefixFn = (index) => `[Star Page ${index + 1}]`;
       break;
-    default: // Default case (should not happen with TypeScript)
+    default:
       barColorClass = "bg-primary";
       barBgClass = "bg-secondary";
       progressText = "Processing...";
@@ -88,7 +79,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           <span>{progressText}</span>
         </div>
         <Progress
-          key={currentStage} // Force re-render on stage change
+          key={currentStage}
           value={progressPercentage}
           indicatorColor={barColorClass}
           backgroundColor={barBgClass}
@@ -127,13 +118,12 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
         </div>
       </ScrollArea>
 
-      {/* Skeleton placeholders mimicking a list with staggered animation */}
       <div className="space-y-4 mt-4 pt-4">
         {[...Array(7)].map((_, index) => (
           <Skeleton
             key={index}
-            className="h-5 w-full animate-enhanced-pulse" // Uses custom enhanced pulse animation
-            style={{ animationDelay: `${index * 0.15}s` }} // Staggered delay for cascade effect
+            className="h-5 w-full animate-enhanced-pulse"
+            style={{ animationDelay: `${index * 0.15}s` }}
           />
         ))}
       </div>

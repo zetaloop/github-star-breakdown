@@ -4,9 +4,8 @@ import {
   RepoStarHistoryItem,
 } from "@/types/github";
 
-// Custom error for rate limiting
 export class RateLimitError extends Error {
-  public resetTimestamp?: number; // Unix timestamp (seconds) when the rate limit resets
+  public resetTimestamp?: number;
 
   constructor(message: string, resetTimestamp?: number) {
     super(message);
@@ -16,22 +15,18 @@ export class RateLimitError extends Error {
   }
 }
 
-// Utility to get GitHub token from localStorage
 export const getGitHubToken = (): string | null => {
   return localStorage.getItem("github_token");
 };
 
-// Utility to set GitHub token in localStorage
 export const setGitHubToken = (token: string): void => {
   localStorage.setItem("github_token", token);
 };
 
-// Utility to clear GitHub token from localStorage
 export const clearGitHubToken = (): void => {
   localStorage.removeItem("github_token");
 };
 
-// ConcurrencyPool: A simple concurrency limiter for async tasks (max concurrency = limit)
 export class ConcurrencyPool {
   private queue: Array<() => Promise<void>> = [];
   private activeCount = 0;
@@ -69,10 +64,9 @@ export class ConcurrencyPool {
   }
 }
 
-// Function to fetch a user's public repositories (concurrent version)
 export const fetchUserRepos = async (
   username: string,
-  onProgress?: (processedDelta: number, totalPages?: number) => void // Optional callback for progress updates
+  onProgress?: (processedDelta: number, totalPages?: number) => void
 ): Promise<GitHubRepo[]> => {
   const token = getGitHubToken();
   const headers = token ? { Authorization: `token ${token}` } : {};
@@ -162,7 +156,6 @@ export const fetchUserRepos = async (
   return allRepos;
 };
 
-// New helper to fetch only the first page of stargazers
 export const fetchRepoStargazersFirstPage = async (
   repoFullName: string
 ): Promise<{ stargazers: GitHubStargazer[]; incomplete: boolean }> => {
@@ -174,7 +167,6 @@ export const fetchRepoStargazersFirstPage = async (
     Authorization: `token ${token}`,
     Accept: "application/vnd.github.star+json",
   };
-  // REMOVED sinceQuery from URL
   const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=1`;
   const response = await fetch(url, { headers });
   if (!response.ok) {
