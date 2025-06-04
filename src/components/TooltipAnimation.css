@@ -27,6 +27,15 @@
     transition: transform 0.2s ease-in-out;
 }
 
+/* Offset item when moving up or down */
+.tooltip-item-move-up {
+    transform: translateY(-0.75rem);
+}
+
+.tooltip-item-move-down {
+    transform: translateY(0.75rem);
+}
+
 /* Add height transition animation for tooltip container */
 .tooltip-list {
     transition: height 0.2s ease-in-out;
