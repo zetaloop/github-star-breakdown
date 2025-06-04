@@ -20,7 +20,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
-// Define the type for the loading stages
 type LoadingStage = 0 | 1 | 2 | null;
 
 const GitHubStarTracker: React.FC = () => {
@@ -37,14 +36,12 @@ const GitHubStarTracker: React.FC = () => {
   const [yearlyIncrements, setYearlyIncrements] = useState<Map<string, number>>(
     new Map()
   );
-  // State for tracking progress across stages
-  const [totalItemsToProcess, setTotalItemsToProcess] = useState<number>(0); // Renamed for generic use across stages
-  const [processedItemsCount, setProcessedItemsCount] = useState<number>(0); // Renamed for generic use across stages
+  const [totalItemsToProcess, setTotalItemsToProcess] = useState<number>(0);
+  const [processedItemsCount, setProcessedItemsCount] = useState<number>(0);
   const [loadingLog, setLoadingLog] = useState<
     Array<{ name: string; status: string }>
   >([]);
-  // New state for tracking the current loading stage
-  const [currentStage, setCurrentStage] = useState<LoadingStage>(null); // null: idle, 0: fetching repos, 1: initial scan, 2: deep scan
+  const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
 
   const handleSearch = useCallback(
     async (usernameInput: string, timeRangeInput: "year" | "all") => {
@@ -55,9 +52,7 @@ const GitHubStarTracker: React.FC = () => {
       setStarHistory([]);
       setRepos([]);
       setYearlyIncrements(new Map());
-      // Reset progress for Stage 0
-      setCurrentStage(0); // Start at stage 0: Fetching repository list
-      // Set totalItemsToProcess to 0 to indicate indeterminate progress initially for stage 0
+      setCurrentStage(0);
       setTotalItemsToProcess(0);
       setProcessedItemsCount(0);
       setLoadingLog([
@@ -85,9 +80,6 @@ const GitHubStarTracker: React.FC = () => {
         const userRepos = await fetchUserRepos(
           usernameInput,
           (delta, totalPages) => {
-            // Renamed processedPages to delta for clarity
-            // Update progress for stage 0 (fetching repo list pages)
-            // Correctly accumulate processed items
             let currentProcessedCount = 0;
             setProcessedItemsCount((prevCount) => {
               currentProcessedCount = prevCount + delta;
@@ -95,24 +87,12 @@ const GitHubStarTracker: React.FC = () => {
             });
 
             if (totalPages) {
-              setTotalItemsToProcess(totalPages); // Update total based on actual pages
+              setTotalItemsToProcess(totalPages);
             } else {
-              // If totalPages is not yet known, keep totalItemsToProcess as 0 for indeterminate state
               setTotalItemsToProcess(0);
             }
-            // Update log message for Stage 0 progress
             setLoadingLog((prev) => {
-              // Use the most up-to-date processed count for the log
-              // We access currentProcessedCount via the closure from setProcessedItemsCount's callback
-              // or ensure it's updated before this log setter runs if not using the direct value from state setter.
-              // For simplicity and immediate reflection, we'll rely on the closure or a slightly delayed state update.
-              // A more robust way if currentProcessedCount isn't reliably updated in time for this specific log:
-              // Re-fetch from state if needed, or pass it explicitly.
-              // However, given setProcessedItemsCount is called right before, this should be fine.
-              // Let's ensure we use the value that *will be* set.
-              // The `currentProcessedCount` captured in the outer scope of this callback will be correct.
               const logEntry = `🔍 Fetching repository list... Page ${currentProcessedCount}${totalPages ? `/${totalPages}` : " (determining total...)"}`;
-              // Avoid duplicate stage 0 entries if possible, update the last one
               if (prev.length > 0 && prev[prev.length - 1].name === "Stage 0") {
                 const updatedLog = [...prev];
                 updatedLog[updatedLog.length - 1] = {
@@ -121,7 +101,6 @@ const GitHubStarTracker: React.FC = () => {
                 };
                 return updatedLog;
               }
-              // Otherwise, add a new entry (should ideally not happen often if initial log is set)
               return [...prev, { name: "Stage 0", status: logEntry }];
             });
           }
@@ -129,7 +108,7 @@ const GitHubStarTracker: React.FC = () => {
 
         if (userRepos.length === 0) {
           toast.info("No public repositories with stars found for this user.");
-          setCurrentStage(null); // Reset stage
+          setCurrentStage(null);
           setIsLoading(false);
           return;
         }
@@ -137,9 +116,9 @@ const GitHubStarTracker: React.FC = () => {
         setRepos(userRepos);
         // Limit to avoid hitting rate limits (GitHub API has strict limits)
         // STAGE 1: Initializing for first page fetch
-        setCurrentStage(1); // Move to stage 1: Initial scan
-        setTotalItemsToProcess(userRepos.length); // For Stage 1: total repos
-        setProcessedItemsCount(0); // Reset for Stage 1: processed repos
+        setCurrentStage(1);
+        setTotalItemsToProcess(userRepos.length);
+        setProcessedItemsCount(0);
         setLoadingLog((prev) => [
           ...prev,
           {
@@ -158,9 +137,8 @@ const GitHubStarTracker: React.FC = () => {
           userRepos.map(async (repo) => {
             let statusMsg = "";
             try {
-              // Call fetchRepoStargazersFirstPage WITHOUT sinceDate
               const { stargazers: firstPageStars, incomplete } =
-                await fetchRepoStargazersFirstPage(repo.full_name); // REMOVED sinceDate
+                await fetchRepoStargazersFirstPage(repo.full_name);
 
               stargazersMap.set(repo.full_name, firstPageStars);
 
@@ -190,7 +168,7 @@ const GitHubStarTracker: React.FC = () => {
 
         // STAGE 2: Deep scan for incomplete repos
         if (incompleteRepos.length > 0) {
-          setCurrentStage(2); // Move to stage 2: Deep scan
+          setCurrentStage(2);
           toast.info(
             `Optimizing load for ${incompleteRepos.length} large repositories...`
           );
@@ -235,8 +213,8 @@ const GitHubStarTracker: React.FC = () => {
           ) {
             totalPagesToProcessForStage2 = incompleteRepos.length;
           }
-          setTotalItemsToProcess(totalPagesToProcessForStage2); // For Stage 2: total pages
-          setProcessedItemsCount(0); // Reset for Stage 2: processed pages
+          setTotalItemsToProcess(totalPagesToProcessForStage2);
+          setProcessedItemsCount(0);
           setLoadingLog((prev) => [
             ...prev,
             {
@@ -245,7 +223,6 @@ const GitHubStarTracker: React.FC = () => {
             },
           ]);
 
-          // Import concurrency pool and fetchStargazersInRange
           const { ConcurrencyPool, fetchStargazersInRange } = await import(
             "@/services/github"
           );
@@ -299,12 +276,10 @@ const GitHubStarTracker: React.FC = () => {
           await Promise.all(promises);
         }
 
-        // FINAL PROCESSING: Process the aggregated star data using sinceDateForFiltering
         const processedStarHistory = processRepoStarHistory(
-          userRepos, // Use the list of repos actually processed
+          userRepos,
           stargazersMap,
-          timeRangeInput // Pass the original time range selection
-          // sinceDateForFiltering is handled internally by processRepoStarHistory based on timeRange
+          timeRangeInput
         );
         setStarHistory(processedStarHistory);
 
@@ -326,12 +301,9 @@ const GitHubStarTracker: React.FC = () => {
             "No star data found for the selected time range (last year)."
           );
         } else if (processedStarHistory.length === 0 && userRepos.length > 0) {
-          // This case might be less common now with multi-stage loading,
-          // but good to keep for edge cases (e.g., all repos had 0 stars).
           toast.info("No star data found for the selected criteria.");
         } else if (userRepos.length > 0) {
           toast.success("Star history analysis complete!");
-          // Let the user take a look at the beautiful 100% progress
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error) {
@@ -355,11 +327,11 @@ const GitHubStarTracker: React.FC = () => {
         }
       } finally {
         setIsLoading(false);
-        setCurrentStage(null); // Reset stage on completion or error
+        setCurrentStage(null);
       }
     },
     []
-  ); // Add dependencies if needed, e.g., if using external state not passed as args
+  );
 
   return (
     <div className="space-y-6">
@@ -376,17 +348,16 @@ const GitHubStarTracker: React.FC = () => {
             </Alert>
           )}
 
-          {isLoading && currentStage !== null ? ( // Check currentStage is not null
+          {isLoading && currentStage !== null ? (
             <LoadingProgress
-              // Pass original prop names and isStage2 based on currentStage
               totalRepos={totalItemsToProcess}
               processedRepos={processedItemsCount}
               log={loadingLog}
-              currentStage={currentStage} // Pass the currentStage prop
+              currentStage={currentStage}
             />
           ) : (
             username &&
-            !isLoading && // Ensure loading is false before showing results
+            !isLoading &&
             (starHistory.length > 0 || repos.length > 0) && (
               <div className="space-y-6">
                 {starHistory.length > 0 ? (
@@ -395,8 +366,6 @@ const GitHubStarTracker: React.FC = () => {
                     timeRange={currentTimeRange}
                   />
                 ) : (
-                  // Show message only if loading is finished, there was no error,
-                  // repos were found, but no star history for the range exists.
                   !error &&
                   repos.length > 0 && (
                     <p className="text-center text-muted-foreground">
@@ -404,10 +373,9 @@ const GitHubStarTracker: React.FC = () => {
                     </p>
                   )
                 )}
-                {/* Show table if repos were found, even if star history is empty */}
                 {repos.length > 0 && (
                   <RepoStatsTable
-                    repos={repos} // Pass all initially fetched repos for the table
+                    repos={repos}
                     timeRange={currentTimeRange}
                     yearlyIncrements={yearlyIncrements}
                   />
