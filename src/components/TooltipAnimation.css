@@ -25,7 +25,7 @@
 /* Animation when tooltip items reorder */
 .tooltip-item-move {
     animation-duration: 0.2s;
-    animation-timing-function: cubic-bezier(0, 0, 0.58, 1); /* ease-out */
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
     animation-fill-mode: both;
 }
 
@@ -41,6 +41,7 @@
     from {
         transform: translateY(0.75rem);
     }
+
     to {
         transform: translateY(0);
     }
@@ -50,6 +51,7 @@
     from {
         transform: translateY(-0.75rem);
     }
+
     to {
         transform: translateY(0);
     }
