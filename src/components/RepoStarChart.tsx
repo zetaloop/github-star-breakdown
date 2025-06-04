@@ -372,6 +372,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
             <AreaChart
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              accessibilityLayer
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
