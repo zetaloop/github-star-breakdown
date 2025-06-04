@@ -4,6 +4,7 @@ This repository contains a React application built with Vite and Bun. The app vi
 
 - `src/`
   - `components/` – React components including `GitHubStarTracker` (main component), `RepoStarChart`, `RepoStatsTable`, UI primitives under `ui/`, and other helpers.
+    - `ui/` – prebuilt shadcn-ui components. These come from the library and usually shouldn't be modified directly.
   - `pages/` – Routable pages (`Index.tsx`, `NotFound.tsx`).
   - `services/` – Logic for interacting with the GitHub API (fetching repos and stargazers, concurrency utilities).
   - `hooks/` – Custom React hooks.
@@ -33,4 +34,8 @@ bun run preview  # Preview production build
 - Main entry is `src/main.tsx`; React app is rendered in `index.html` inside the `#root` element.
 - GitHub API helpers in `src/services/github.ts` handle token management, fetching repositories, fetching stargazers with concurrency control, and processing star history.
 - `GitHubStarTracker` orchestrates user input, loading stages, and displays charts and tables summarizing repository star growth.
+
+## Contribution Guidelines
+- Components under `src/components/ui` come from the shadcn-ui library. Avoid editing them unless upgrading the library.
+- When creating a pull request, use an English branch name. Commit messages should be written in Chinese and may use prefixes like `feat:` or `fix:` similar to existing commits.
 
