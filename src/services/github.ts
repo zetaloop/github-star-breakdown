@@ -247,57 +247,47 @@ export const fetchStargazersInRange = async (
     return { stars, pageNewest, pageOldest };
   };
 
-  // Keep track of pages already scheduled to avoid duplicates
+  // Recursive binary search with parallelism
   const scheduled = new Set<number>();
 
-  const schedulePage = (page: number, s: number, e: number) => {
-    if (page < s || page > e) return;
-    if (scheduled.has(page)) return;
-    scheduled.add(page);
+  const recur = (s: number, e: number): void => {
+    if (s > e) return;
+    const mid = Math.floor((s + e) / 2);
+    if (scheduled.has(mid)) return;
+    scheduled.add(mid);
     pool.add(async () => {
-      const { stars, pageNewest, pageOldest } = await fetchPage(page);
+      const { stars, pageNewest, pageOldest } = await fetchPage(mid);
       onProgress();
       if (!stars.length || !pageNewest || !pageOldest) return;
 
-      // Skip ranges completely outside the desired window
       if (until && pageNewest > until) {
-        const skipped = page - s;
+        const skipped = mid - s;
         if (skipped > 0) onProgress(skipped);
-        scheduleRange(page + 1, e);
+        recur(mid + 1, e);
         return;
       }
+
       if (since && pageOldest < since) {
-        const skipped = e - page;
+        const skipped = e - mid;
         if (skipped > 0) onProgress(skipped);
-        scheduleRange(s, page - 1);
+        recur(s, mid - 1);
         return;
       }
 
       saveStars(stars);
-      scheduleRange(s, page - 1);
-      scheduleRange(page + 1, e);
+      recur(s, mid - 1);
+      recur(mid + 1, e);
     });
   };
 
-  const scheduleRange = (s: number, e: number) => {
-    if (s > e) return;
-    const mid = Math.floor((s + e) / 2);
-    schedulePage(mid, s, e);
-  };
-
-  // Kick off with up to 50 evenly spaced pages for better parallelism
+  // Kick off with several evenly spaced seed pages for better parallelism
   const totalPages = endPage - startPage + 1;
-  const initial = Math.min(50, totalPages);
-  if (initial === totalPages) {
-    for (let p = startPage; p <= endPage; p++) scheduleRange(p, p);
-  } else {
-    const step = totalPages / initial;
-    for (let i = 0; i < initial; i++) {
-      const page = Math.floor(startPage + i * step);
-      scheduleRange(page, startPage, endPage);
-    }
+  const step = Math.max(1, Math.floor(totalPages / 50));
+  for (let p = startPage; p <= endPage; p += step) {
+    recur(p, p);
   }
-
+  // Also process the whole range to ensure full coverage
+  recur(startPage, endPage);
   await pool.awaitAll();
 };
 
