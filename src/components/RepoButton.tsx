@@ -1,4 +1,4 @@
-import { GitHubIcon } from "@/components/icons/GitHubIcon";
+import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function RepoButton() {
@@ -9,7 +9,7 @@ export default function RepoButton() {
         target="_blank"
         rel="noreferrer"
       >
-        <GitHubIcon className="h-[1.2rem] w-[1.2rem]" />
+        <ExternalLink className="h-[1.2rem] w-[1.2rem]" />
         <span className="sr-only">Open repository</span>
       </a>
     </Button>

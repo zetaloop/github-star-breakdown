@@ -1,4 +1,4 @@
-import { Laptop, Moon, Sun } from "lucide-react";
+import { Moon, Sun, CloudSun } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
   DropdownMenu,
@@ -28,7 +28,7 @@ export default function ThemeToggle() {
               theme === "dark" ? "rotate-0 scale-100" : "rotate-90 scale-0"
             )}
           />
-          <Laptop
+          <CloudSun
             className={cn(
               "absolute h-[1.2rem] w-[1.2rem] transition-all",
               theme === "system" ? "rotate-0 scale-100" : "-rotate-90 scale-0"
@@ -45,7 +45,7 @@ export default function ThemeToggle() {
           <Moon className="mr-2 h-4 w-4" /> Dark
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>
-          <Laptop className="mr-2 h-4 w-4" /> System
+          <CloudSun className="mr-2 h-4 w-4" /> System
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
