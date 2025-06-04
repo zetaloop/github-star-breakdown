@@ -8,11 +8,13 @@ import {
 import GitHubStarTracker from "@/components/GitHubStarTracker";
 import { GitHubIcon } from "@/components/icons/GitHubIcon";
 import ThemeToggle from "@/components/ThemeToggle";
+import RepoButton from "@/components/RepoButton";
 
 const Index = () => {
   return (
     <div className="container max-w-7xl py-6 sm:py-10 space-y-8">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <RepoButton />
         <ThemeToggle />
       </div>
       <header className="text-center">
