@@ -52,7 +52,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
           </Button>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-2 flex items-center justify-between gap-4">
           <RadioGroup
             value={timeRange}
             onValueChange={(value) => setTimeRange(value as "year" | "all")}
@@ -67,9 +67,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
               <Label htmlFor="all">All Time</Label>
             </div>
           </RadioGroup>
-        </div>
-        {onResetToken && (
-          <div className="flex justify-end">
+          {onResetToken && (
             <Button
               type="button"
               variant="outline"
@@ -79,8 +77,8 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
             >
               Reset Token
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </form>
     </Card>
   );
