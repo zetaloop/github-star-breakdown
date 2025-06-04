@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils"; // Import cn utility
+import { cn } from "@/lib/utils";
 import { Search, Star, Calendar as CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
 
 type TimeRangeOption = "year" | "all" | "custom";
 
@@ -40,13 +41,27 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim()) {
-      onSearch(
-        username.trim(),
-        timeRange,
-        timeRange === "custom" ? customRange : undefined
-      );
+    if (!username.trim()) {
+      return;
     }
+
+    if (timeRange === "custom") {
+      if (!customRange?.from || !customRange?.to) {
+        toast.error(
+          "Invalid custom date range. Both start and end dates are required."
+        );
+        setTimeRange("all");
+        setCustomRange(undefined);
+        setPopoverOpen(false);
+        return;
+      }
+    }
+
+    onSearch(
+      username.trim(),
+      timeRange,
+      timeRange === "custom" ? customRange : undefined
+    );
   };
 
   return (
@@ -77,7 +92,6 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
         <div className="mt-2 flex items-center justify-between gap-4">
           <div className="flex items-center gap-1">
             {" "}
-            {/* Wrapper for ToggleGroup and Custom Button */}
             <ToggleGroup
               type="single"
               value={
@@ -89,8 +103,6 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
                   setCustomRange(undefined);
                   setPopoverOpen(false);
                 }
-                // If val is "", it means deselection, which type="single" should prevent if an item is clicked.
-                // If timeRange was "custom" and user clicks "year"/"all", this correctly updates.
               }}
               className="gap-1"
             >
@@ -102,10 +114,11 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
                 <Button
                   aria-label="Custom date range"
                   className={cn(
-                    "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-accent-foreground", // Base toggle styles
-                    "bg-transparent",
-                    "h-10 px-3",
-                    "w-auto",
+                    "inline-flex items-center justify-center rounded-md text-sm font-medium",
+                    "ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+                    "text-accent-foreground bg-transparent h-10 px-3 w-auto",
                     timeRange === "custom" && "bg-accent"
                   )}
                   onClick={() => {
