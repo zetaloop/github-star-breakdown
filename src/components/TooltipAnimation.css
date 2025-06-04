@@ -1,13 +1,13 @@
 /* Add enter animation for tooltip items - slide in from the right */
 .tooltip-item-enter {
     opacity: 0;
-    transform: translateX(1rem);
+    transform: translateX(2rem);
 }
 
 .tooltip-item-enter-active {
     opacity: 1;
     transform: translateX(0);
-    transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+    transition: transform 0.2s cubic-bezier(0, 0.55, 0.45, 1), opacity 0.2s cubic-bezier(0, 0.55, 0.45, 1);
 }
 
 /* Add exit animation for tooltip items - slide out to the right */
@@ -18,8 +18,8 @@
 
 .tooltip-item-exit-active {
     opacity: 0;
-    transform: translateX(1rem);
-    transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+    transform: translateX(2rem);
+    transition: transform 0.2s cubic-bezier(0, 0.55, 0.45, 1), opacity 0.2s cubic-bezier(0, 0.55, 0.45, 1);
     position: absolute;
     width: 100%;
     left: 0;
