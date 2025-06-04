@@ -66,7 +66,7 @@ const GitHubStarTracker: React.FC = () => {
 
       try {
         const now = new Date();
-        // This sinceDate is ONLY for client-side filtering in processRepoStarHistory
+        // Dates used for filtering and deep scan range
         const sinceDateForFiltering =
           timeRangeInput === "year"
             ? new Date(
@@ -75,6 +75,11 @@ const GitHubStarTracker: React.FC = () => {
                 now.getDate()
               ).toISOString()
             : undefined;
+        const sinceDateForRange =
+          timeRangeInput === "year"
+            ? new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+            : undefined;
+        const untilDateForRange = now;
 
         // STAGE 0: Fetching User Repos with progress
         const userRepos = await fetchUserRepos(
@@ -205,9 +210,23 @@ const GitHubStarTracker: React.FC = () => {
                 ? repo.stargazers_count
                 : 0;
             if (totalStars > firstPageStarsCount) {
-              const remainingStars = totalStars - firstPageStarsCount;
               const startPage = 2;
-              const endPage = Math.ceil(totalStars / 100);
+              let endPage = Math.ceil(totalStars / 100);
+
+              // Estimate pages within the selected time range
+              if (timeRangeInput === "year" && sinceDateForRange) {
+                const repoCreated = new Date(repo.created_at);
+                const repoAgeDays =
+                  (now.getTime() - repoCreated.getTime()) / 86_400_000;
+                const rangeDays =
+                  (now.getTime() - sinceDateForRange.getTime()) / 86_400_000;
+                const fraction =
+                  repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
+                const estimatedStarsInRange = Math.ceil(totalStars * fraction);
+                const pagesInRange = Math.ceil(estimatedStarsInRange / 100);
+                endPage = Math.max(startPage, pagesInRange);
+              }
+
               totalPagesToProcessForStage2 += endPage - startPage + 1;
               repoPageMap[repo.full_name] = { start: startPage, end: endPage };
             }
@@ -251,7 +270,9 @@ const GitHubStarTracker: React.FC = () => {
                     },
                     (pageStars) => {
                       stars.push(...pageStars);
-                    }
+                    },
+                    sinceDateForRange,
+                    untilDateForRange
                   );
                   const currentStars = stargazersMap.get(repo.full_name) || [];
                   stargazersMap.set(repo.full_name, [

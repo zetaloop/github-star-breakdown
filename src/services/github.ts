@@ -248,36 +248,46 @@ export const fetchStargazersInRange = async (
   };
 
   // Recursive binary search with parallelism
-  const recur = async (s: number, e: number): Promise<void> => {
+  const scheduled = new Set<number>();
+
+  const recur = (s: number, e: number): void => {
     if (s > e) return;
     const mid = Math.floor((s + e) / 2);
-    await pool.add(async () => {
+    if (scheduled.has(mid)) return;
+    scheduled.add(mid);
+    pool.add(async () => {
       const { stars, pageNewest, pageOldest } = await fetchPage(mid);
-      onProgress(); // Always count this page as processed
+      onProgress();
       if (!stars.length || !pageNewest || !pageOldest) return;
-      // If the page is entirely too new (all stars newer than `until`), skip left side pages [s..mid-1]
+
       if (until && pageNewest > until) {
         const skipped = mid - s;
         if (skipped > 0) onProgress(skipped);
-        await recur(mid + 1, e);
+        recur(mid + 1, e);
         return;
       }
-      // If the page is entirely too old (all stars older than `since`), skip right side pages [mid+1..e]
+
       if (since && pageOldest < since) {
         const skipped = e - mid;
         if (skipped > 0) onProgress(skipped);
-        await recur(s, mid - 1);
+        recur(s, mid - 1);
         return;
       }
-      // This page has data in range
+
       saveStars(stars);
-      // Recurse both sides in parallel
-      const left = s < mid ? recur(s, mid - 1) : Promise.resolve();
-      const right = mid < e ? recur(mid + 1, e) : Promise.resolve();
-      await Promise.all([left, right]);
+      recur(s, mid - 1);
+      recur(mid + 1, e);
     });
   };
-  await recur(startPage, endPage);
+
+  // Kick off with several evenly spaced seed pages for better parallelism
+  const totalPages = endPage - startPage + 1;
+  const step = Math.max(1, Math.floor(totalPages / 50));
+  for (let p = startPage; p <= endPage; p += step) {
+    recur(p, p);
+  }
+  // Also process the whole range to ensure full coverage
+  recur(startPage, endPage);
   await pool.awaitAll();
 };
 
