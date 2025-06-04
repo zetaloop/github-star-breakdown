@@ -15,7 +15,7 @@ import {
   processRepoStarHistory,
   getGitHubToken,
   fetchRepoStargazersFirstPage,
-  RateLimitError, // Import the custom error
+  RateLimitError,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -61,7 +61,6 @@ const GitHubStarTracker: React.FC = () => {
 
       try {
         const now = new Date();
-        // Dates used for filtering and deep scan range
         const sinceDateForFiltering =
           timeRangeInput === "year"
             ? new Date(
@@ -76,7 +75,6 @@ const GitHubStarTracker: React.FC = () => {
             : undefined;
         const untilDateForRange = now;
 
-        // STAGE 0: Fetching User Repos with progress
         const userRepos = await fetchUserRepos(
           usernameInput,
           (delta, totalPages) => {
@@ -114,8 +112,7 @@ const GitHubStarTracker: React.FC = () => {
         }
 
         setRepos(userRepos);
-        // Limit to avoid hitting rate limits (GitHub API has strict limits)
-        // STAGE 1: Initializing for first page fetch
+        // Limit concurrent requests to avoid hitting rate limits
         setCurrentStage(1);
         setTotalItemsToProcess(userRepos.length);
         setProcessedItemsCount(0);
@@ -155,9 +152,7 @@ const GitHubStarTracker: React.FC = () => {
               );
               statusMsg = `❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`;
             } finally {
-              // Update Stage 1 progress
               setProcessedItemsCount((prev) => prev + 1);
-              // Add log entry for this specific repo in stage 1
               setLoadingLog((prev) => [
                 ...prev,
                 { name: repo.full_name, status: statusMsg },
@@ -166,16 +161,13 @@ const GitHubStarTracker: React.FC = () => {
           })
         );
 
-        // STAGE 2: Deep scan for incomplete repos
         if (incompleteRepos.length > 0) {
           setCurrentStage(2);
           toast.info(
             `Optimizing load for ${incompleteRepos.length} large repositories...`
           );
 
-          // Calculate total pages needed for stage 2 more accurately
           let totalPagesToProcessForStage2 = 0;
-          // Map repo name to its page range
           const repoPageMap: Record<string, { start: number; end: number }> =
             {};
           for (const repo of incompleteRepos) {
@@ -189,7 +181,6 @@ const GitHubStarTracker: React.FC = () => {
               const startPage = 2;
               let endPage = Math.ceil(totalStars / 100);
 
-              // Estimate pages within the selected time range
               if (timeRangeInput === "year" && sinceDateForRange) {
                 const repoCreated = new Date(repo.created_at);
                 const repoAgeDays =
@@ -283,7 +274,6 @@ const GitHubStarTracker: React.FC = () => {
         );
         setStarHistory(processedStarHistory);
 
-        // Calculate yearly increments if needed
         const newYearlyIncrements = new Map<string, number>();
         if (timeRangeInput === "year") {
           processedStarHistory.forEach((item) => {
@@ -295,7 +285,6 @@ const GitHubStarTracker: React.FC = () => {
         }
         setYearlyIncrements(newYearlyIncrements);
 
-        // Provide feedback based on results
         if (processedStarHistory.length === 0 && timeRangeInput === "year") {
           toast.info(
             "No star data found for the selected time range (last year)."
