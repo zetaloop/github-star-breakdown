@@ -77,11 +77,7 @@ const GitHubStarTracker: React.FC = () => {
             : undefined;
         const sinceDateForRange =
           timeRangeInput === "year"
-            ? new Date(
-                now.getFullYear() - 1,
-                now.getMonth(),
-                now.getDate()
-              )
+            ? new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
             : undefined;
         const untilDateForRange = now;
 
