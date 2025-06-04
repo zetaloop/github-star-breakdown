@@ -24,7 +24,7 @@ Run scripts via Bun:
 ```bash
 bun run dev      # Start development server
 bun run build    # Build for production
-bun run lint     # Run ESLint
+bun run lint     # Run ESLint (bun install eslint first)
 bun run preview  # Preview production build
 ```
 
