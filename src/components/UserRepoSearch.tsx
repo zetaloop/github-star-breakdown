@@ -88,6 +88,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
               variant="link"
               onClick={onResetToken}
               disabled={isLoading}
+              className="text-foreground"
             >
               Reset Token
             </Button>
