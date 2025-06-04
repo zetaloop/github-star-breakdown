@@ -119,6 +119,24 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
       .map((item) => item.repo);
   }, [chartData]);
 
+  // Map of repo name to total stars for scaling legend items
+  const starTotals = useMemo(() => {
+    if (chartData.length === 0) return new Map<string, number>();
+    const latest = chartData[chartData.length - 1];
+    const map = new Map<string, number>();
+    Object.entries(latest).forEach(([key, value]) => {
+      if (key !== "date") {
+        map.set(key, value as number);
+      }
+    });
+    return map;
+  }, [chartData]);
+
+  const maxStars = useMemo(
+    () => Math.max(0, ...Array.from(starTotals.values())),
+    [starTotals]
+  );
+
   // Basic color palette with handpicked colors
   const BASE_PALETTE = [
     "#4C51BF", // Indigo
@@ -271,16 +289,30 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
   };
 
   const CustomLegend = () => (
-    <ul className="flex flex-wrap justify-center gap-4 mt-4">
-      {repoNames.map((repo) => (
-        <li key={repo} className="flex items-center gap-2">
-          <span
-            className="w-3 h-3 rounded-sm"
-            style={{ backgroundColor: getRepoColor(repo) }}
-          />
-          <span className="text-sm">{repo}</span>
-        </li>
-      ))}
+    <ul className="flex flex-wrap justify-center gap-2 mt-4">
+      {repoNames.map((repo) => {
+        const stars = starTotals.get(repo) || 0;
+        const ratio = maxStars ? Math.sqrt(stars / maxStars) : 0;
+        const fontSize = 0.75 + 0.25 * ratio; // rem
+        const square = 0.75 + 0.5 * ratio; // rem
+        return (
+          <li
+            key={repo}
+            className="flex items-center gap-2"
+            style={{ fontSize: `${fontSize}rem` }}
+          >
+            <span
+              className="rounded-sm"
+              style={{
+                backgroundColor: getRepoColor(repo),
+                width: `${square}rem`,
+                height: `${square}rem`,
+              }}
+            />
+            <span>{repo}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 
