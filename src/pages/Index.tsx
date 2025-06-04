@@ -14,8 +14,8 @@ const Index = () => {
   return (
     <div className="container max-w-7xl py-6 sm:py-10 space-y-8">
       <div className="flex justify-end gap-2">
-        <RepoButton />
         <ThemeToggle />
+        <RepoButton />
       </div>
       <header className="text-center">
         <div className="flex justify-center mb-2">
