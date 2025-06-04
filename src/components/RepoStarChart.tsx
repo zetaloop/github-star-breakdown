@@ -229,6 +229,8 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
     payload: ChartDataPoint;
   }
 
+  const prevOrderRef = useRef<string[]>([]);
+
   interface CustomTooltipProps {
     active?: boolean;
     payload?: TooltipPayloadEntry[];
@@ -237,8 +239,6 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
 
   // Custom tooltip formatter to sort repos by current stars at the hovered date
   const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
-    const prevOrderRef = useRef<string[]>([]);
-
     const reposAtDate = useMemo(() => {
       if (!payload) return [] as TooltipPayloadEntry[];
       return payload
