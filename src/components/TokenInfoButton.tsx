@@ -78,7 +78,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
               </p>
             </div>
             <p className="text-sm">
-              Resets{" "}
+              Limit resets{" "}
               {formatDistanceToNow(new Date(reset * 1000), { addSuffix: true })}
             </p>
             <Button
@@ -86,7 +86,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
               className="w-full"
               onClick={handleReset}
             >
-              Reset Token
+              Clear Token
             </Button>
           </div>
         )}
