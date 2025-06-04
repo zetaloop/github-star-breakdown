@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Search, Star, Calendar as CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
+import TokenInfoButton from "./TokenInfoButton";
 
 type TimeRangeOption = "year" | "all" | "custom";
 
@@ -151,15 +152,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
             </Popover>
           </div>
           {onResetToken && (
-            <Button
-              type="button"
-              variant="link"
-              onClick={onResetToken}
-              disabled={isLoading}
-              className="text-foreground"
-            >
-              Reset Token
-            </Button>
+            <TokenInfoButton onReset={onResetToken} disabled={isLoading} />
           )}
         </div>
       </form>
