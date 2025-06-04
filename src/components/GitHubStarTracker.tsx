@@ -14,6 +14,7 @@ import {
   fetchUserRepos,
   processRepoStarHistory,
   getGitHubToken,
+  clearGitHubToken,
   fetchRepoStargazersFirstPage,
   RateLimitError,
 } from "@/services/github";
@@ -42,6 +43,16 @@ const GitHubStarTracker: React.FC = () => {
     Array<{ name: string; status: string }>
   >([]);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
+
+  const handleResetToken = () => {
+    clearGitHubToken();
+    setHasValidToken(false);
+    setUsername("");
+    setRepos([]);
+    setStarHistory([]);
+    setYearlyIncrements(new Map());
+    setError(null);
+  };
 
   const handleSearch = useCallback(
     async (usernameInput: string, timeRangeInput: "year" | "all") => {
@@ -328,7 +339,11 @@ const GitHubStarTracker: React.FC = () => {
         <ApiKeyForm onTokenValidated={() => setHasValidToken(true)} />
       ) : (
         <>
-          <UserRepoSearch onSearch={handleSearch} isLoading={isLoading} />
+          <UserRepoSearch
+            onSearch={handleSearch}
+            isLoading={isLoading}
+            onResetToken={handleResetToken}
+          />
 
           {error && (
             <Alert variant="destructive">

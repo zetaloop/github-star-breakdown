@@ -9,11 +9,13 @@ import { Search, Star } from "lucide-react";
 interface UserRepoSearchProps {
   onSearch: (username: string, timeRange: "year" | "all") => void;
   isLoading: boolean;
+  onResetToken?: () => void;
 }
 
 const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
   onSearch,
   isLoading,
+  onResetToken,
 }) => {
   const [username, setUsername] = useState<string>("");
   const [timeRange, setTimeRange] = useState<"year" | "all">("year");
@@ -50,7 +52,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
           </Button>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-2 flex items-center justify-between gap-4">
           <RadioGroup
             value={timeRange}
             onValueChange={(value) => setTimeRange(value as "year" | "all")}
@@ -65,6 +67,17 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
               <Label htmlFor="all">All Time</Label>
             </div>
           </RadioGroup>
+          {onResetToken && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onResetToken}
+              disabled={isLoading}
+            >
+              Reset Token
+            </Button>
+          )}
         </div>
       </form>
     </Card>
