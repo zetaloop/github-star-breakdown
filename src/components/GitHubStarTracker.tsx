@@ -66,7 +66,7 @@ const GitHubStarTracker: React.FC = () => {
 
       try {
         const now = new Date();
-        // This sinceDate is ONLY for client-side filtering in processRepoStarHistory
+        // Dates used for filtering and deep scan range
         const sinceDateForFiltering =
           timeRangeInput === "year"
             ? new Date(
@@ -75,6 +75,15 @@ const GitHubStarTracker: React.FC = () => {
                 now.getDate()
               ).toISOString()
             : undefined;
+        const sinceDateForRange =
+          timeRangeInput === "year"
+            ? new Date(
+                now.getFullYear() - 1,
+                now.getMonth(),
+                now.getDate()
+              )
+            : undefined;
+        const untilDateForRange = now;
 
         // STAGE 0: Fetching User Repos with progress
         const userRepos = await fetchUserRepos(
@@ -251,7 +260,9 @@ const GitHubStarTracker: React.FC = () => {
                     },
                     (pageStars) => {
                       stars.push(...pageStars);
-                    }
+                    },
+                    sinceDateForRange,
+                    untilDateForRange
                   );
                   const currentStars = stargazersMap.get(repo.full_name) || [];
                   stargazersMap.set(repo.full_name, [

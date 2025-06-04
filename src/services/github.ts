@@ -247,37 +247,57 @@ export const fetchStargazersInRange = async (
     return { stars, pageNewest, pageOldest };
   };
 
-  // Recursive binary search with parallelism
-  const recur = async (s: number, e: number): Promise<void> => {
-    if (s > e) return;
-    const mid = Math.floor((s + e) / 2);
-    await pool.add(async () => {
-      const { stars, pageNewest, pageOldest } = await fetchPage(mid);
-      onProgress(); // Always count this page as processed
+  // Keep track of pages already scheduled to avoid duplicates
+  const scheduled = new Set<number>();
+
+  const schedulePage = (page: number, s: number, e: number) => {
+    if (page < s || page > e) return;
+    if (scheduled.has(page)) return;
+    scheduled.add(page);
+    pool.add(async () => {
+      const { stars, pageNewest, pageOldest } = await fetchPage(page);
+      onProgress();
       if (!stars.length || !pageNewest || !pageOldest) return;
-      // If the page is entirely too new (all stars newer than `until`), skip left side pages [s..mid-1]
+
+      // Skip ranges completely outside the desired window
       if (until && pageNewest > until) {
-        const skipped = mid - s;
+        const skipped = page - s;
         if (skipped > 0) onProgress(skipped);
-        await recur(mid + 1, e);
+        scheduleRange(page + 1, e);
         return;
       }
-      // If the page is entirely too old (all stars older than `since`), skip right side pages [mid+1..e]
       if (since && pageOldest < since) {
-        const skipped = e - mid;
+        const skipped = e - page;
         if (skipped > 0) onProgress(skipped);
-        await recur(s, mid - 1);
+        scheduleRange(s, page - 1);
         return;
       }
-      // This page has data in range
+
       saveStars(stars);
-      // Recurse both sides in parallel
-      const left = s < mid ? recur(s, mid - 1) : Promise.resolve();
-      const right = mid < e ? recur(mid + 1, e) : Promise.resolve();
-      await Promise.all([left, right]);
+      scheduleRange(s, page - 1);
+      scheduleRange(page + 1, e);
     });
   };
-  await recur(startPage, endPage);
+
+  const scheduleRange = (s: number, e: number) => {
+    if (s > e) return;
+    const mid = Math.floor((s + e) / 2);
+    schedulePage(mid, s, e);
+  };
+
+  // Kick off with up to 50 evenly spaced pages for better parallelism
+  const totalPages = endPage - startPage + 1;
+  const initial = Math.min(50, totalPages);
+  if (initial === totalPages) {
+    for (let p = startPage; p <= endPage; p++) scheduleRange(p, p);
+  } else {
+    const step = totalPages / initial;
+    for (let i = 0; i < initial; i++) {
+      const page = Math.floor(startPage + i * step);
+      scheduleRange(page, startPage, endPage);
+    }
+  }
+
   await pool.awaitAll();
 };
 
