@@ -14,10 +14,12 @@ import {
   fetchUserRepos,
   processRepoStarHistory,
   getGitHubToken,
+  clearGitHubToken,
   fetchRepoStargazersFirstPage,
   RateLimitError,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 
 type LoadingStage = 0 | 1 | 2 | null;
@@ -42,6 +44,16 @@ const GitHubStarTracker: React.FC = () => {
     Array<{ name: string; status: string }>
   >([]);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
+
+  const handleResetToken = () => {
+    clearGitHubToken();
+    setHasValidToken(false);
+    setUsername("");
+    setRepos([]);
+    setStarHistory([]);
+    setYearlyIncrements(new Map());
+    setError(null);
+  };
 
   const handleSearch = useCallback(
     async (usernameInput: string, timeRangeInput: "year" | "all") => {
@@ -329,6 +341,11 @@ const GitHubStarTracker: React.FC = () => {
       ) : (
         <>
           <UserRepoSearch onSearch={handleSearch} isLoading={isLoading} />
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={handleResetToken}>
+              Reset Token
+            </Button>
+          </div>
 
           {error && (
             <Alert variant="destructive">
