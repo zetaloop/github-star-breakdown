@@ -411,3 +411,32 @@ export const verifyGitHubToken = async (token: string): Promise<boolean> => {
     return false;
   }
 };
+
+export interface RateLimitInfo {
+  limit: number;
+  used: number;
+  reset: number;
+}
+
+export const fetchRateLimit = async (): Promise<RateLimitInfo | null> => {
+  const token = getGitHubToken();
+  if (!token) return null;
+  try {
+    const response = await fetch("https://api.github.com/rate_limit", {
+      headers: { Authorization: `token ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch rate limit: ${response.status}`);
+    }
+    const data = await response.json();
+    const core = data.resources.core;
+    return {
+      limit: core.limit,
+      used: core.limit - core.remaining,
+      reset: core.reset,
+    };
+  } catch (error) {
+    console.error("Error fetching rate limit:", error);
+    return null;
+  }
+};
