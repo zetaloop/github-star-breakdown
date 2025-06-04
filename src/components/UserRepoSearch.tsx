@@ -57,7 +57,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
           <Button
             type="submit"
             disabled={isLoading || !username.trim()}
-            className="bg-github-blue hover:bg-github-darkBlue"
+            className="bg-github-blue hover:bg-github-darkBlue text-destructive-foreground"
           >
             <Star className="mr-2 h-4 w-4" />
             {isLoading ? "Loading..." : "Analyze Stars"}
@@ -85,8 +85,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
           {onResetToken && (
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="link"
               onClick={onResetToken}
               disabled={isLoading}
             >
