@@ -84,8 +84,8 @@ const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ onTokenValidated }) => {
                 className="text-primary hover:underline"
               >
                 Create a new token
-              </a>{" "}
-              if you don't have one.
+              </a>
+              , if you don't have one.
             </p>
           </div>
 
@@ -101,7 +101,7 @@ const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ onTokenValidated }) => {
         <Button
           onClick={validateAndSetToken}
           disabled={isValidating}
-          className="w-full bg-github-blue hover:bg-github-darkBlue"
+          className="w-full bg-github-blue hover:bg-github-darkBlue text-destructive-foreground"
         >
           {isValidating ? "Validating..." : "Set Token"}
         </Button>
