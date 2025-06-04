@@ -5,7 +5,6 @@ import UserRepoSearch from "./UserRepoSearch";
 import RepoStarChart from "./RepoStarChart";
 import RepoStatsTable from "./RepoStatsTable";
 import LoadingProgress from "./LoadingProgress";
-import { Button } from "@/components/ui/button";
 import {
   GitHubRepo,
   GitHubStargazer,
@@ -335,24 +334,16 @@ const GitHubStarTracker: React.FC = () => {
   );
 
   return (
-    <div className="relative space-y-6">
-      {hasValidToken && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleResetToken}
-          disabled={isLoading}
-          className="absolute right-4 top-4"
-        >
-          Reset Token
-        </Button>
-      )}
+    <div className="space-y-6">
       {!hasValidToken ? (
         <ApiKeyForm onTokenValidated={() => setHasValidToken(true)} />
       ) : (
         <>
-          <UserRepoSearch onSearch={handleSearch} isLoading={isLoading} />
+          <UserRepoSearch
+            onSearch={handleSearch}
+            isLoading={isLoading}
+            onResetToken={handleResetToken}
+          />
 
           {error && (
             <Alert variant="destructive">
