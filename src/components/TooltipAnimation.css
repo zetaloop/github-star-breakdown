@@ -20,6 +20,9 @@
     opacity: 0;
     transform: translateX(1rem);
     transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+    position: absolute;
+    width: 100%;
+    left: 0;
 }
 
 /* Animation when tooltip items reorder */
@@ -60,6 +63,7 @@
 /* Add height transition animation for tooltip container */
 .tooltip-list {
     transition: height 0.2s ease-in-out;
+    position: relative;
 }
 
 /* Ensure Recharts chart container does not clip tooltip */
