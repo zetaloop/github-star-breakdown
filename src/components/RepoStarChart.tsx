@@ -1,4 +1,4 @@
-import { useMemo, createRef } from "react";
+import { useMemo, createRef, useRef, useEffect } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { TransitionGroup, CSSTransition } from "react-transition-group";
 import { RepoStarHistoryItem } from "@/types/github";
+import { cn } from "@/lib/utils";
 import "./TooltipAnimation.css";
 
 interface RepoStarChartProps {
@@ -228,6 +229,8 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
     payload: ChartDataPoint;
   }
 
+  const prevOrderRef = useRef<string[]>([]);
+
   interface CustomTooltipProps {
     active?: boolean;
     payload?: TooltipPayloadEntry[];
@@ -236,12 +239,20 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
 
   // Custom tooltip formatter to sort repos by current stars at the hovered date
   const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
-    if (!active || !payload || !payload.length) return null;
+    const reposAtDate = useMemo(() => {
+      if (!payload) return [] as TooltipPayloadEntry[];
+      return payload
+        .filter((entry) => entry.value > 0)
+        .sort((a, b) => b.value - a.value);
+    }, [payload]);
 
-    // Create a sorted array of repositories based on star count at this specific date point
-    const reposAtDate = payload
-      .filter((entry) => entry.value > 0) // Filter out repos with 0 stars
-      .sort((a, b) => b.value - a.value); // Sort by current stars (at tooltip point)
+    const prevOrder = prevOrderRef.current;
+
+    useEffect(() => {
+      prevOrderRef.current = reposAtDate.map((entry) => entry.dataKey);
+    }, [reposAtDate]);
+
+    if (!active || reposAtDate.length === 0) return null;
 
     return (
       <div className="bg-background border border-border p-3 rounded-md shadow-md">
@@ -250,7 +261,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
         </p>
         <div className="tooltip-list space-y-1.5">
           <TransitionGroup component="ul" className="list-none p-0 m-0">
-            {reposAtDate.map((entry) => {
+            {reposAtDate.map((entry, index) => {
               const nodeRef = createRef<HTMLLIElement>();
               const displayValue = entry.value;
               return (
@@ -267,8 +278,20 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                       !fadingOut &&
                       (timeRange === "year" || timeRange === "custom") &&
                       value > 0;
+                    const prevIndex = prevOrder.indexOf(entry.dataKey);
+                    const moveClass =
+                      prevIndex === -1
+                        ? ""
+                        : prevIndex > index
+                          ? "tooltip-item-move tooltip-item-move-up"
+                          : prevIndex < index
+                            ? "tooltip-item-move tooltip-item-move-down"
+                            : "";
                     return (
-                      <li ref={nodeRef} className="flex items-center gap-2">
+                      <li
+                        ref={nodeRef}
+                        className={cn("flex items-center gap-2", moveClass)}
+                      >
                         <div
                           className="w-3 h-3 rounded-sm"
                           style={{ backgroundColor: entry.color }}
