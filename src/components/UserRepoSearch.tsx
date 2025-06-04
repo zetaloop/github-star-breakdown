@@ -1,11 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import DateRangePicker, { DateRange } from "./DateRangePicker";
+import { DateRange } from "react-day-picker";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { Search, Star } from "lucide-react";
+import { cn } from "@/lib/utils"; // Import cn utility
+import { Search, Star, Calendar as CalendarIcon } from "lucide-react";
 
 type TimeRangeOption = "year" | "all" | "custom";
 
@@ -26,7 +33,10 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
 }) => {
   const [username, setUsername] = useState<string>("");
   const [timeRange, setTimeRange] = useState<TimeRangeOption>("year");
-  const [customRange, setCustomRange] = useState<DateRange>({});
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(
+    undefined
+  );
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,23 +75,68 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
         </div>
 
         <div className="mt-2 flex items-center justify-between gap-4">
-          <ToggleGroup
-            type="single"
-            value={timeRange}
-            onValueChange={(val) => val && setTimeRange(val as TimeRangeOption)}
-            className="gap-1"
-          >
-            <ToggleGroupItem value="year">Last Year</ToggleGroupItem>
-            <ToggleGroupItem value="all">All Time</ToggleGroupItem>
-            <ToggleGroupItem value="custom">
-              {timeRange === "custom" && customRange.from && customRange.to
-                ? `${format(customRange.from, "yyyy-MM-dd")}-${format(customRange.to, "yyyy-MM-dd")}`
-                : "Custom"}
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {timeRange === "custom" && (
-            <DateRangePicker value={customRange} onChange={setCustomRange} />
-          )}
+          <div className="flex items-center gap-1">
+            {" "}
+            {/* Wrapper for ToggleGroup and Custom Button */}
+            <ToggleGroup
+              type="single"
+              value={
+                timeRange === "year" || timeRange === "all" ? timeRange : ""
+              }
+              onValueChange={(val) => {
+                if (val === "year" || val === "all") {
+                  setTimeRange(val as TimeRangeOption);
+                  setCustomRange(undefined);
+                  setPopoverOpen(false);
+                }
+                // If val is "", it means deselection, which type="single" should prevent if an item is clicked.
+                // If timeRange was "custom" and user clicks "year"/"all", this correctly updates.
+              }}
+              className="gap-1"
+            >
+              <ToggleGroupItem value="year">Last Year</ToggleGroupItem>
+              <ToggleGroupItem value="all">All Time</ToggleGroupItem>
+            </ToggleGroup>
+            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  aria-label="Custom date range"
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-accent-foreground", // Base toggle styles
+                    "bg-transparent",
+                    "h-10 px-3",
+                    "w-auto",
+                    timeRange === "custom" && "bg-accent"
+                  )}
+                  onClick={() => {
+                    setTimeRange("custom");
+                  }}
+                >
+                  {customRange?.from && customRange?.to
+                    ? `${format(customRange.from, "PPP")} - ${format(
+                        customRange.to,
+                        "PPP"
+                      )}`
+                    : customRange?.from
+                      ? format(customRange.from, "PPP")
+                      : "Custom"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={customRange?.from}
+                  selected={customRange}
+                  onSelect={(range) => {
+                    setCustomRange(range);
+                    setTimeRange("custom");
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           {onResetToken && (
             <Button
               type="button"
