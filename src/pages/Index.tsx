@@ -44,10 +44,7 @@ const Index = () => {
       </Card>
 
       <footer className="text-center text-sm text-muted-foreground py-4">
-        <p>
-          Built with React, Recharts, and GitHub API. Note: GitHub API has rate
-          limits that may affect data retrieval.
-        </p>
+        <p>Have fun uwu</p>
       </footer>
     </div>
   );
