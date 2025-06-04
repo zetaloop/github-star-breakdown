@@ -115,7 +115,7 @@ export const fetchUserRepos = async (
   }
   const firstPageRepos: GitHubRepo[] = await firstResp.json();
   const filteredFirst = firstPageRepos.filter(
-    (repo) => !repo.fork && repo.stargazers_count > 0
+    (repo) => repo.stargazers_count > 0
   );
   allRepos = [...allRepos, ...filteredFirst];
   processedPages++;
@@ -149,9 +149,7 @@ export const fetchUserRepos = async (
         );
       }
       const repos: GitHubRepo[] = await resp.json();
-      const filtered = repos.filter(
-        (repo) => !repo.fork && repo.stargazers_count > 0
-      );
+      const filtered = repos.filter((repo) => repo.stargazers_count > 0);
       results[page - 2] = filtered;
       if (onProgress) onProgress(1, totalPages);
     });
