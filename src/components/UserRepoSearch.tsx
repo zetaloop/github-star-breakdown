@@ -9,11 +9,13 @@ import { Search, Star } from "lucide-react";
 interface UserRepoSearchProps {
   onSearch: (username: string, timeRange: "year" | "all") => void;
   isLoading: boolean;
+  onResetToken?: () => void;
 }
 
 const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
   onSearch,
   isLoading,
+  onResetToken,
 }) => {
   const [username, setUsername] = useState<string>("");
   const [timeRange, setTimeRange] = useState<"year" | "all">("year");
@@ -48,6 +50,17 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
             <Star className="mr-2 h-4 w-4" />
             {isLoading ? "Loading..." : "Analyze Stars"}
           </Button>
+          {onResetToken && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onResetToken}
+              disabled={isLoading}
+            >
+              Reset Token
+            </Button>
+          )}
         </div>
 
         <div className="mt-2">

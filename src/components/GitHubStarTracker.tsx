@@ -19,7 +19,6 @@ import {
   RateLimitError,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 
 type LoadingStage = 0 | 1 | 2 | null;
@@ -340,12 +339,11 @@ const GitHubStarTracker: React.FC = () => {
         <ApiKeyForm onTokenValidated={() => setHasValidToken(true)} />
       ) : (
         <>
-          <UserRepoSearch onSearch={handleSearch} isLoading={isLoading} />
-          <div className="flex justify-end">
-            <Button variant="ghost" size="sm" onClick={handleResetToken}>
-              Reset Token
-            </Button>
-          </div>
+          <UserRepoSearch
+            onSearch={handleSearch}
+            isLoading={isLoading}
+            onResetToken={handleResetToken}
+          />
 
           {error && (
             <Alert variant="destructive">
