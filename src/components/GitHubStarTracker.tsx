@@ -31,9 +31,9 @@ const GitHubStarTracker: React.FC = () => {
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [starHistory, setStarHistory] = useState<RepoStarHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [currentTimeRange, setCurrentTimeRange] = useState<"year" | "all">(
-    "all"
-  );
+  const [currentTimeRange, setCurrentTimeRange] = useState<
+    "year" | "all" | "custom"
+  >("all");
   const [yearlyIncrements, setYearlyIncrements] = useState<Map<string, number>>(
     new Map()
   );
@@ -55,7 +55,11 @@ const GitHubStarTracker: React.FC = () => {
   };
 
   const handleSearch = useCallback(
-    async (usernameInput: string, timeRangeInput: "year" | "all") => {
+    async (
+      usernameInput: string,
+      timeRangeInput: "year" | "all" | "custom",
+      customRange?: { from?: Date; to?: Date }
+    ) => {
       setIsLoading(true);
       setError(null);
       setUsername(usernameInput);
@@ -72,19 +76,23 @@ const GitHubStarTracker: React.FC = () => {
 
       try {
         const now = new Date();
-        const sinceDateForFiltering =
-          timeRangeInput === "year"
-            ? new Date(
-                now.getFullYear() - 1,
-                now.getMonth(),
-                now.getDate()
-              ).toISOString()
-            : undefined;
-        const sinceDateForRange =
-          timeRangeInput === "year"
-            ? new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-            : undefined;
-        const untilDateForRange = now;
+        let sinceDateForRange: Date | undefined;
+        let untilDateForRange: Date = now;
+
+        if (timeRangeInput === "year") {
+          sinceDateForRange = new Date(
+            now.getFullYear() - 1,
+            now.getMonth(),
+            now.getDate()
+          );
+        } else if (
+          timeRangeInput === "custom" &&
+          customRange?.from &&
+          customRange.to
+        ) {
+          sinceDateForRange = customRange.from;
+          untilDateForRange = customRange.to;
+        }
 
         const userRepos = await fetchUserRepos(
           usernameInput,
@@ -192,12 +200,16 @@ const GitHubStarTracker: React.FC = () => {
               const startPage = 2;
               let endPage = Math.ceil(totalStars / 100);
 
-              if (timeRangeInput === "year" && sinceDateForRange) {
+              if (
+                (timeRangeInput === "year" || timeRangeInput === "custom") &&
+                sinceDateForRange
+              ) {
                 const repoCreated = new Date(repo.created_at);
                 const repoAgeDays =
                   (now.getTime() - repoCreated.getTime()) / 86_400_000;
                 const rangeDays =
-                  (now.getTime() - sinceDateForRange.getTime()) / 86_400_000;
+                  (untilDateForRange.getTime() - sinceDateForRange.getTime()) /
+                  86_400_000;
                 const fraction =
                   repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
                 const estimatedStarsInRange = Math.ceil(totalStars * fraction);
@@ -281,12 +293,16 @@ const GitHubStarTracker: React.FC = () => {
         const processedStarHistory = processRepoStarHistory(
           userRepos,
           stargazersMap,
-          timeRangeInput
+          {
+            type: timeRangeInput,
+            from: sinceDateForRange,
+            to: untilDateForRange,
+          }
         );
         setStarHistory(processedStarHistory);
 
         const newYearlyIncrements = new Map<string, number>();
-        if (timeRangeInput === "year") {
+        if (timeRangeInput === "year" || timeRangeInput === "custom") {
           processedStarHistory.forEach((item) => {
             newYearlyIncrements.set(
               item.repoName,
@@ -296,10 +312,11 @@ const GitHubStarTracker: React.FC = () => {
         }
         setYearlyIncrements(newYearlyIncrements);
 
-        if (processedStarHistory.length === 0 && timeRangeInput === "year") {
-          toast.info(
-            "No star data found for the selected time range (last year)."
-          );
+        if (
+          processedStarHistory.length === 0 &&
+          (timeRangeInput === "year" || timeRangeInput === "custom")
+        ) {
+          toast.info("No star data found for the selected time range.");
         } else if (processedStarHistory.length === 0 && userRepos.length > 0) {
           toast.info("No star data found for the selected criteria.");
         } else if (userRepos.length > 0) {

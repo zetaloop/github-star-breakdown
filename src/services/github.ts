@@ -285,15 +285,23 @@ export const fetchStargazersInRange = async (
 export const processRepoStarHistory = (
   repos: GitHubRepo[],
   repoStargazers: Map<string, GitHubStargazer[]>,
-  timeRange: "year" | "all"
+  options: { type: "year" | "all" | "custom"; from?: Date; to?: Date }
 ): RepoStarHistoryItem[] => {
   const result: RepoStarHistoryItem[] = [];
   const now = new Date();
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(now.getFullYear() - 1);
 
-  // Calculate the cutoff date based on selected time range
-  const cutoffDate = timeRange === "year" ? oneYearAgo : new Date(0); // Jan 1, 1970
+  let cutoffDate: Date;
+  let endDate: Date = now;
+  if (options.type === "year") {
+    cutoffDate = oneYearAgo;
+  } else if (options.type === "custom" && options.from && options.to) {
+    cutoffDate = options.from;
+    endDate = options.to;
+  } else {
+    cutoffDate = new Date(0); // Jan 1, 1970
+  }
 
   // Process each repository (already filtered for repos with stars > 0)
   repos.forEach((repo) => {
@@ -327,7 +335,7 @@ export const processRepoStarHistory = (
       const loopStartDate =
         earliestStarDate < cutoffDate ? cutoffDate : earliestStarDate;
       // Ensure end date doesn't exceed today
-      const loopEndDate = latestStarDate > now ? now : latestStarDate;
+      const loopEndDate = latestStarDate > endDate ? endDate : latestStarDate;
 
       for (
         let d = new Date(loopStartDate);
@@ -341,7 +349,7 @@ export const processRepoStarHistory = (
           stars: starsByDate.get(dateKey) || 0,
         });
       }
-    } else if (stargazers.length > 0 && timeRange === "all") {
+    } else if (stargazers.length > 0 && options.type === "all") {
       // Handle case where all stars are before the 1-year cutoff but timeRange is 'all'
       // Find the actual earliest and latest star dates overall
       let overallEarliest: Date | null = null;
