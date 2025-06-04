@@ -136,28 +136,26 @@ const GitHubStarTracker: React.FC = () => {
 
         setRepos(userRepos);
         // Limit to avoid hitting rate limits (GitHub API has strict limits)
-        const reposToProcess = userRepos.slice(0, 30); // Consider making this configurable
-
         // STAGE 1: Initializing for first page fetch
         setCurrentStage(1); // Move to stage 1: Initial scan
-        setTotalItemsToProcess(reposToProcess.length); // For Stage 1: total repos
+        setTotalItemsToProcess(userRepos.length); // For Stage 1: total repos
         setProcessedItemsCount(0); // Reset for Stage 1: processed repos
         setLoadingLog((prev) => [
           ...prev,
           {
             name: "Stage 1",
-            status: `📊 Starting initial scan of ${reposToProcess.length} repos...`,
+            status: `📊 Starting initial scan of ${userRepos.length} repos...`,
           },
         ]);
         toast.info(
-          `Fetching first page of stars for ${reposToProcess.length} repositories...`
+          `Fetching first page of stars for ${userRepos.length} repositories...`
         );
 
         const incompleteRepos: GitHubRepo[] = [];
         const stargazersMap = new Map<string, GitHubStargazer[]>();
 
         await Promise.all(
-          reposToProcess.map(async (repo) => {
+          userRepos.map(async (repo) => {
             let statusMsg = "";
             try {
               // Call fetchRepoStargazersFirstPage WITHOUT sinceDate
@@ -303,7 +301,7 @@ const GitHubStarTracker: React.FC = () => {
 
         // FINAL PROCESSING: Process the aggregated star data using sinceDateForFiltering
         const processedStarHistory = processRepoStarHistory(
-          reposToProcess, // Use the list of repos actually processed
+          userRepos, // Use the list of repos actually processed
           stargazersMap,
           timeRangeInput // Pass the original time range selection
           // sinceDateForFiltering is handled internally by processRepoStarHistory based on timeRange
@@ -327,14 +325,11 @@ const GitHubStarTracker: React.FC = () => {
           toast.info(
             "No star data found for the selected time range (last year)."
           );
-        } else if (
-          processedStarHistory.length === 0 &&
-          reposToProcess.length > 0
-        ) {
+        } else if (processedStarHistory.length === 0 && userRepos.length > 0) {
           // This case might be less common now with multi-stage loading,
           // but good to keep for edge cases (e.g., all repos had 0 stars).
           toast.info("No star data found for the selected criteria.");
-        } else if (reposToProcess.length > 0) {
+        } else if (userRepos.length > 0) {
           toast.success("Star history analysis complete!");
           // Let the user take a look at the beautiful 100% progress
           await new Promise((resolve) => setTimeout(resolve, 100));
