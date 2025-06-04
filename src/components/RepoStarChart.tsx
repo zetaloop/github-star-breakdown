@@ -7,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
 import {
   Card,
@@ -271,6 +270,20 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
     );
   };
 
+  const CustomLegend = () => (
+    <ul className="flex flex-wrap justify-center gap-4 mt-4">
+      {repoNames.map((repo) => (
+        <li key={repo} className="flex items-center gap-2">
+          <span
+            className="w-3 h-3 rounded-sm"
+            style={{ backgroundColor: getRepoColor(repo) }}
+          />
+          <span className="text-sm">{repo}</span>
+        </li>
+      ))}
+    </ul>
+  );
+
   if (starHistory.length === 0) {
     return (
       <Card className="w-full">
@@ -317,14 +330,6 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
                 allowEscapeViewBox={{ x: false, y: true }}
                 position={{ y: 0 }}
               />
-              <Legend
-                payload={repoNames.map((repo) => ({
-                  value: repo,
-                  type: "square",
-                  id: repo,
-                  color: getRepoColor(repo),
-                }))}
-              />
               {/* Render areas in the same order as the table (by total stars desc) */}
               {[...repoNames].reverse().map((repo) => (
                 <Area
@@ -342,6 +347,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
             </AreaChart>
           </ResponsiveContainer>
         </div>
+        <CustomLegend />
       </CardContent>
     </Card>
   );
