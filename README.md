@@ -1,73 +1,53 @@
-# Welcome to your Lovable project
+# GitHub Star Growth Mapper
 
-## Project info
+A React application that visualizes how each repository contributes to a GitHub user's star count over time. The project uses Vite and Bun and relies on the GitHub API to fetch repository and stargazer data.
 
-**URL**: https://lovable.dev/projects/08b20526-b7c1-433b-a463-c445f28e707d
+## Features
 
-## How can I edit this code?
+- **GitHub authentication** – enter a personal access token to increase API limits.
+- **User search** – analyze any public GitHub username.
+- **Star history** – stacked area chart shows cumulative star growth.
+- **Repository table** – sort repositories by star count or yearly increment.
+- **Last year or all time** – focus on recent growth or complete history.
+- **Progress indicator** – multi‑stage loader tracks API requests and remaining work.
 
-There are several ways of editing your application.
+## Installation
 
-**Use Lovable**
+Install dependencies with Bun and start the development server:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/08b20526-b7c1-433b-a463-c445f28e707d) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+bun install
+bun run dev
 ```
 
-**Edit a file directly in GitHub**
+Other useful commands:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+bun run build    # Build for production
+bun run preview  # Preview the production build
+bun run lint     # Run ESLint
+```
 
-**Use GitHub Codespaces**
+## Usage
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Start the app and provide your GitHub personal access token when prompted (requires `repo` and `read:user` scopes).
+2. Enter a GitHub username and choose the time range (last year or all time).
+3. View the chart and table to explore how each repository contributes to the user's stars.
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with:
+- `src/components` – main React components including `GitHubStarTracker`, `RepoStarChart`, `RepoStatsTable`, and helpers.
+- `src/services/github.ts` – functions for fetching repositories, stargazers and processing star history.
+- `src/pages` – routable pages (`Index.tsx`, `NotFound.tsx`).
+- `src/hooks` and `src/types` – reusable hooks and TypeScript definitions.
+- `src/components/ui` – shadcn‑ui components (do not edit directly).
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Configuration files like `vite.config.ts` and `tailwind.config.ts` set up the Vite build and Tailwind CSS.
 
-## How can I deploy this project?
+## Contributing
 
-Simply open [Lovable](https://lovable.dev/projects/08b20526-b7c1-433b-a463-c445f28e707d) and click on Share -> Publish.
+Run `bun run lint` before submitting code changes. Components under `src/components/ui` originate from shadcn‑ui and generally should not be modified.
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This README replaces the previous template and describes the actual code in this repository.
