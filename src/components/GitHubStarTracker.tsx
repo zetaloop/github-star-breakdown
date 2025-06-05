@@ -15,7 +15,6 @@ import {
   processRepoStarHistory,
   getGitHubToken,
   clearGitHubToken,
-  fetchRepoStargazersFirstPage,
   RateLimitError,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -131,174 +130,104 @@ const GitHubStarTracker: React.FC = () => {
         }
 
         setRepos(userRepos);
-        // Limit concurrent requests to avoid hitting rate limits
-        setCurrentStage(1);
-        setTotalItemsToProcess(userRepos.length);
+
+        setCurrentStage(2);
+        const stargazersMap = new Map<string, GitHubStargazer[]>();
+        let totalPagesToProcess = 0;
+        const repoPageMap: Record<string, { start: number; end: number }> = {};
+        for (const repo of userRepos) {
+          const totalStars =
+            typeof repo.stargazers_count === "number"
+              ? repo.stargazers_count
+              : 0;
+          if (totalStars === 0) continue;
+          const endPage = Math.ceil(totalStars / 100);
+          let startPage = 1;
+          if (
+            (timeRangeInput === "year" || timeRangeInput === "custom") &&
+            sinceDateForRange
+          ) {
+            const repoCreated = new Date(repo.created_at);
+            const repoAgeDays =
+              (now.getTime() - repoCreated.getTime()) / 86_400_000;
+            const rangeDays =
+              (untilDateForRange.getTime() - sinceDateForRange.getTime()) /
+              86_400_000;
+            const fraction =
+              repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
+            if (fraction < 1) {
+              const estimatedStarsInRange = Math.ceil(totalStars * fraction);
+              const pagesInRange = Math.ceil(estimatedStarsInRange / 100);
+              startPage = Math.max(1, endPage - pagesInRange + 1);
+            }
+          }
+          totalPagesToProcess += endPage - startPage + 1;
+          repoPageMap[repo.full_name] = { start: startPage, end: endPage };
+        }
+        if (totalPagesToProcess === 0 && userRepos.length > 0) {
+          totalPagesToProcess = userRepos.length;
+        }
+        setTotalItemsToProcess(totalPagesToProcess);
         setProcessedItemsCount(0);
         setLoadingLog((prev) => [
           ...prev,
           {
-            name: "Stage 1",
-            status: `📊 Starting initial scan of ${userRepos.length} repos...`,
+            name: "Stage 2",
+            status: `📗 Starting deep scan of ${userRepos.length} repos (${totalPagesToProcess} estimated pages)`,
           },
         ]);
         toast.info(
-          `Fetching first page of stars for ${userRepos.length} repositories...`
+          `Fetching stargazers for ${userRepos.length} repositories...`
         );
 
-        const incompleteRepos: GitHubRepo[] = [];
-        const stargazersMap = new Map<string, GitHubStargazer[]>();
-        const lastPageMap: Record<string, number> = {};
-
-        await Promise.all(
-          userRepos.map(async (repo) => {
-            let statusMsg = "";
-            try {
-              const {
-                stargazers: firstPageStars,
-                incomplete,
-                lastPage,
-              } = await fetchRepoStargazersFirstPage(repo.full_name);
-
-              stargazersMap.set(repo.full_name, firstPageStars);
-              if (lastPage) {
-                lastPageMap[repo.full_name] = lastPage;
-              }
-
-              if (!incomplete) {
-                statusMsg = `✅ Fetched ${firstPageStars.length} stars (complete)`;
-              } else {
-                statusMsg = `🔄 Fetched ${firstPageStars.length} stars... more pages pending`;
-                incompleteRepos.push(repo);
-              }
-            } catch (err) {
-              console.error(
-                `Error fetching first page for ${repo.full_name}:`,
-                err
-              );
-              statusMsg = `❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`;
-            } finally {
-              setProcessedItemsCount((prev) => prev + 1);
-              setLoadingLog((prev) => [
-                ...prev,
-                { name: repo.full_name, status: statusMsg },
-              ]);
-            }
-          })
+        const { ConcurrencyPool } = await import("@/services/concurrency");
+        const { fetchStargazersInRange } = await import(
+          "@/services/githubHeavy"
         );
-
-        if (incompleteRepos.length > 0) {
-          setCurrentStage(2);
-          toast.info(
-            `Optimizing load for ${incompleteRepos.length} large repositories...`
-          );
-
-          let totalPagesToProcessForStage2 = 0;
-          const repoPageMap: Record<string, { start: number; end: number }> =
-            {};
-          for (const repo of incompleteRepos) {
-            const firstPageStarsCount =
-              stargazersMap.get(repo.full_name)?.length || 0;
-            const totalStars =
-              typeof repo.stargazers_count === "number"
-                ? repo.stargazers_count
-                : 0;
-            if (totalStars > firstPageStarsCount) {
-              const endPage =
-                lastPageMap[repo.full_name] || Math.ceil(totalStars / 100);
-              let startPage = 2;
-
-              if (
-                (timeRangeInput === "year" || timeRangeInput === "custom") &&
-                sinceDateForRange
-              ) {
-                const repoCreated = new Date(repo.created_at);
-                const repoAgeDays =
-                  (now.getTime() - repoCreated.getTime()) / 86_400_000;
-                const rangeDays =
-                  (untilDateForRange.getTime() - sinceDateForRange.getTime()) /
-                  86_400_000;
-                const fraction =
-                  repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
-                const estimatedStarsInRange = Math.ceil(totalStars * fraction);
-                const pagesInRange = Math.ceil(estimatedStarsInRange / 100);
-                startPage = Math.max(2, endPage - pagesInRange + 1);
+        const pool = new ConcurrencyPool(50);
+        const promises: Promise<void>[] = [];
+        for (const repo of userRepos) {
+          const pageInfo = repoPageMap[repo.full_name];
+          if (!pageInfo) continue;
+          const stars: GitHubStargazer[] = [];
+          promises.push(
+            (async () => {
+              try {
+                await fetchStargazersInRange(
+                  repo.full_name,
+                  pageInfo.start,
+                  pageInfo.end,
+                  pool,
+                  (delta = 1) => {
+                    setProcessedItemsCount((prev) => prev + delta);
+                  },
+                  (pageStars) => {
+                    stars.push(...pageStars);
+                  },
+                  sinceDateForRange,
+                  untilDateForRange
+                );
+                stargazersMap.set(repo.full_name, stars);
+                setLoadingLog((prev) => [
+                  ...prev,
+                  {
+                    name: repo.full_name,
+                    status: `✅ Full data loaded (${stars.length} stars)`,
+                  },
+                ]);
+              } catch (err) {
+                setLoadingLog((prev) => [
+                  ...prev,
+                  {
+                    name: repo.full_name,
+                    status: `❌ Error loading pages: ${err instanceof Error ? err.message : "Unknown error"}`,
+                  },
+                ]);
               }
-
-              totalPagesToProcessForStage2 += endPage - startPage + 1;
-              repoPageMap[repo.full_name] = { start: startPage, end: endPage };
-            }
-          }
-          if (
-            totalPagesToProcessForStage2 === 0 &&
-            incompleteRepos.length > 0
-          ) {
-            totalPagesToProcessForStage2 = incompleteRepos.length;
-          }
-          setTotalItemsToProcess(totalPagesToProcessForStage2);
-          setProcessedItemsCount(0);
-          setLoadingLog((prev) => [
-            ...prev,
-            {
-              name: "Stage 2",
-              status: `📗 Starting deep scan of ${incompleteRepos.length} repos (${totalPagesToProcessForStage2} estimated pages)`,
-            },
-          ]);
-
-          const { ConcurrencyPool } = await import("@/services/concurrency");
-          const { fetchStargazersInRange } = await import(
-            "@/services/githubHeavy"
+            })()
           );
-          const pool = new ConcurrencyPool(50);
-          const promises: Promise<void>[] = [];
-          for (const repo of incompleteRepos) {
-            const pageInfo = repoPageMap[repo.full_name];
-            if (!pageInfo) continue;
-            const stars: GitHubStargazer[] = [];
-            promises.push(
-              (async () => {
-                try {
-                  await fetchStargazersInRange(
-                    repo.full_name,
-                    pageInfo.start,
-                    pageInfo.end,
-                    pool,
-                    (delta = 1) => {
-                      setProcessedItemsCount((prev) => prev + delta);
-                    },
-                    (pageStars) => {
-                      stars.push(...pageStars);
-                    },
-                    sinceDateForRange,
-                    untilDateForRange
-                  );
-                  const currentStars = stargazersMap.get(repo.full_name) || [];
-                  stargazersMap.set(repo.full_name, [
-                    ...currentStars,
-                    ...stars,
-                  ]);
-                  setLoadingLog((prev) => [
-                    ...prev,
-                    {
-                      name: repo.full_name,
-                      status: `✅ Full data loaded (${(currentStars?.length || 0) + stars.length} stars)`,
-                    },
-                  ]);
-                } catch (err) {
-                  setLoadingLog((prev) => [
-                    ...prev,
-                    {
-                      name: repo.full_name,
-                      status: `❌ Error loading remaining pages: ${err instanceof Error ? err.message : "Unknown error"}`,
-                    },
-                  ]);
-                }
-              })()
-            );
-          }
-          await Promise.all(promises);
         }
-
+        await Promise.all(promises);
         const processedStarHistory = processRepoStarHistory(
           userRepos,
           stargazersMap,

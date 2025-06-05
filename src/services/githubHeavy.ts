@@ -96,9 +96,17 @@ export const fetchStargazersInRange = async (
   };
 
   const totalPages = endPage - startPage + 1;
-  const step = Math.max(1, Math.floor(totalPages / 50));
-  for (let p = startPage; p <= endPage; p += step) {
-    recur(p, p);
+  if (totalPages <= 3) {
+    for (let p = startPage; p <= endPage; p++) {
+      recur(p, p);
+    }
+  } else {
+    const quarter1 = startPage + Math.floor((totalPages - 1) * 0.25);
+    const quarter2 = startPage + Math.floor((totalPages - 1) * 0.5);
+    const quarter3 = startPage + Math.floor((totalPages - 1) * 0.75);
+    for (const p of [quarter1, quarter2, quarter3]) {
+      if (!scheduled.has(p)) recur(p, p);
+    }
   }
   recur(startPage, endPage);
   await pool.awaitAll();
