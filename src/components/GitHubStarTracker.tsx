@@ -214,7 +214,8 @@ const GitHubStarTracker: React.FC = () => {
                   repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
                 const estimatedStarsInRange = Math.ceil(totalStars * fraction);
                 const pagesInRange = Math.ceil(estimatedStarsInRange / 100);
-                startPage = Math.max(2, endPage - pagesInRange + 1);
+                const safetyMargin = Math.ceil(pagesInRange * 4);
+                startPage = Math.max(2, endPage - safetyMargin + 1);
               }
 
               totalPagesToProcessForStage2 += endPage - startPage + 1;
