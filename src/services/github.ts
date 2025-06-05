@@ -27,7 +27,7 @@ export const clearGitHubToken = (): void => {
   localStorage.removeItem("github_token");
 };
 
-export class ConcurrencyPool {
+class ConcurrencyPool {
   private queue: Array<() => Promise<void>> = [];
   private activeCount = 0;
   private limit: number;
@@ -193,93 +193,6 @@ export const fetchRepoStargazersFirstPage = async (
 };
 
 // Parallel binary search and fetch for stargazers in a given date range, with concurrency pool and skip logic
-export const fetchStargazersInRange = async (
-  repoFullName: string,
-  startPage: number, // usually 2
-  endPage: number, // total pages for this repo
-  pool: ConcurrencyPool,
-  onProgress: (delta?: number) => void,
-  saveStars: (stars: GitHubStargazer[]) => void,
-  since?: Date,
-  until?: Date
-) => {
-  // Helper to fetch a single page and return stargazers + date range
-  const token = getGitHubToken();
-  if (!token) throw new Error("GitHub token is required");
-  const headers = {
-    Authorization: `token ${token}`,
-    Accept: "application/vnd.github.star+json",
-  };
-  const fetchPage = async (page: number) => {
-    const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=${page}`;
-    const resp = await fetch(url, { headers });
-    if (!resp.ok) {
-      if (resp.status === 403) {
-        const reset = resp.headers.get("X-RateLimit-Reset");
-        const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-        let message = `GitHub API rate limit exceeded at page ${page} for ${repoFullName}.`;
-        if (resetTimestamp) {
-          message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-        }
-        // Instead of returning, throw RateLimitError
-        throw new RateLimitError(message, resetTimestamp);
-      }
-      throw new Error(
-        `Error fetching page ${page} for ${repoFullName}: ${resp.status} - ${resp.statusText}`
-      );
-    }
-    const stars: GitHubStargazer[] = await resp.json();
-    if (stars.length === 0) {
-      return { stars, pageNewest: null, pageOldest: null };
-    }
-    const pageNewest = new Date(stars[0].starred_at);
-    const pageOldest = new Date(stars[stars.length - 1].starred_at);
-    return { stars, pageNewest, pageOldest };
-  };
-
-  // Recursive binary search with parallelism
-  const scheduled = new Set<number>();
-
-  const recur = (s: number, e: number): void => {
-    if (s > e) return;
-    const mid = Math.floor((s + e) / 2);
-    if (scheduled.has(mid)) return;
-    scheduled.add(mid);
-    pool.add(async () => {
-      const { stars, pageNewest, pageOldest } = await fetchPage(mid);
-      onProgress();
-      if (!stars.length || !pageNewest || !pageOldest) return;
-
-      if (until && pageNewest > until) {
-        const skipped = mid - s;
-        if (skipped > 0) onProgress(skipped);
-        recur(mid + 1, e);
-        return;
-      }
-
-      if (since && pageOldest < since) {
-        const skipped = e - mid;
-        if (skipped > 0) onProgress(skipped);
-        recur(s, mid - 1);
-        return;
-      }
-
-      saveStars(stars);
-      recur(s, mid - 1);
-      recur(mid + 1, e);
-    });
-  };
-
-  // Kick off with several evenly spaced seed pages for better parallelism
-  const totalPages = endPage - startPage + 1;
-  const step = Math.max(1, Math.floor(totalPages / 50));
-  for (let p = startPage; p <= endPage; p += step) {
-    recur(p, p);
-  }
-  // Also process the whole range to ensure full coverage
-  recur(startPage, endPage);
-  await pool.awaitAll();
-};
 
 // Process repositories and stargazers into time series data for charting
 export const processRepoStarHistory = (

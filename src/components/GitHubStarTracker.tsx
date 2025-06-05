@@ -238,7 +238,7 @@ const GitHubStarTracker: React.FC = () => {
           ]);
 
           const { ConcurrencyPool, fetchStargazersInRange } = await import(
-            "@/services/github"
+            "@/services/githubHeavy"
           );
           const pool = new ConcurrencyPool(50);
           const promises: Promise<void>[] = [];
