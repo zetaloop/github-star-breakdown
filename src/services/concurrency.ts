@@ -38,4 +38,16 @@ export class ConcurrencyPool {
     if (this.activeCount === 0 && this.queue.length === 0) return;
     await this.donePromise;
   }
+
+  getActiveCount() {
+    return this.activeCount;
+  }
+
+  getQueueLength() {
+    return this.queue.length;
+  }
+
+  getLimit() {
+    return this.limit;
+  }
 }
