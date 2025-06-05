@@ -3,6 +3,7 @@ import {
   GitHubStargazer,
   RepoStarHistoryItem,
 } from "@/types/github";
+import { ConcurrencyPool } from "./concurrency";
 
 export class RateLimitError extends Error {
   public resetTimestamp?: number;
@@ -27,47 +28,8 @@ export const clearGitHubToken = (): void => {
   localStorage.removeItem("github_token");
 };
 
-export class ConcurrencyPool {
-  private queue: Array<() => Promise<void>> = [];
-  private activeCount = 0;
-  private limit: number;
-  private allDone: (() => void)[] = [];
-  private donePromise: Promise<void>;
+const firstPagePool = new ConcurrencyPool(50);
 
-  constructor(limit: number) {
-    this.limit = limit;
-    this.donePromise = new Promise((resolve) => this.allDone.push(resolve));
-  }
-
-  add(taskFunc: () => Promise<void>) {
-    if (this.activeCount === 0 && this.queue.length === 0) {
-      this.donePromise = new Promise((resolve) => {
-        this.allDone = [resolve];
-      });
-    }
-    this.queue.push(taskFunc);
-    this.runNext();
-  }
-
-  private runNext() {
-    if (this.activeCount < this.limit && this.queue.length > 0) {
-      const taskFunc = this.queue.shift()!;
-      this.activeCount++;
-      taskFunc().finally(() => {
-        this.activeCount--;
-        this.runNext();
-        if (this.activeCount === 0 && this.queue.length === 0) {
-          this.allDone.forEach((cb) => cb());
-        }
-      });
-    }
-  }
-
-  async awaitAll() {
-    if (this.activeCount === 0 && this.queue.length === 0) return;
-    await this.donePromise;
-  }
-}
 
 export const fetchUserRepos = async (
   username: string,
@@ -161,40 +123,48 @@ export const fetchUserRepos = async (
   return allRepos;
 };
 
-export const fetchRepoStargazersFirstPage = async (
+export const fetchRepoStargazersFirstPage = (
   repoFullName: string
 ): Promise<{ stargazers: GitHubStargazer[]; incomplete: boolean }> => {
-  const token = getGitHubToken();
-  if (!token) {
-    throw new Error("GitHub token required for stargazers");
-  }
-  const headers = {
-    Authorization: `token ${token}`,
-    Accept: "application/vnd.github.star+json",
-  };
-  const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=1`;
-  const response = await fetch(url, { headers });
-  if (!response.ok) {
-    // Handle rate limiting specifically
-    if (response.status === 403) {
-      const reset = response.headers.get("X-RateLimit-Reset");
-      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-      let message = `GitHub API rate limit exceeded fetching first page for ${repoFullName}.`;
-      if (resetTimestamp) {
-        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+  return new Promise((resolve, reject) => {
+    firstPagePool.add(async () => {
+      try {
+        const token = getGitHubToken();
+        if (!token) {
+          throw new Error("GitHub token required for stargazers");
+        }
+        const headers = {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github.star+json",
+        };
+        const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=1`;
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          if (response.status === 403) {
+            const reset = response.headers.get("X-RateLimit-Reset");
+            const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+            let message = `GitHub API rate limit exceeded fetching first page for ${repoFullName}.`;
+            if (resetTimestamp) {
+              message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+            }
+            reject(new RateLimitError(message, resetTimestamp));
+            return;
+          }
+          reject(
+            new Error(
+              `GitHub API Error fetching first page for ${repoFullName}: ${response.status} - ${response.statusText}`
+            )
+          );
+          return;
+        }
+        const firstPageData: GitHubStargazer[] = await response.json();
+        const moreData = firstPageData.length === 100;
+        resolve({ stargazers: firstPageData, incomplete: moreData });
+      } catch (err) {
+        reject(err);
       }
-      // Instead of returning, throw RateLimitError to be caught by the caller
-      throw new RateLimitError(message, resetTimestamp);
-    }
-    throw new Error(
-      `GitHub API Error fetching first page for ${repoFullName}: ${response.status} - ${response.statusText}`
-    );
-  }
-  const firstPageData: GitHubStargazer[] = await response.json();
-  // Determine if more pages likely (100 received or GitHub indicated more via Link header - simpler check here)
-  // A more robust check could involve parsing the 'Link' header if present.
-  const moreData = firstPageData.length === 100;
-  return { stargazers: firstPageData, incomplete: moreData };
+    });
+  });
 };
 
 // Parallel binary search and fetch for stargazers in a given date range, with concurrency pool and skip logic

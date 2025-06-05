@@ -16,7 +16,6 @@ import {
   getGitHubToken,
   clearGitHubToken,
   fetchRepoStargazersFirstPage,
-  ConcurrencyPool,
   RateLimitError,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -150,47 +149,36 @@ const GitHubStarTracker: React.FC = () => {
         const incompleteRepos: GitHubRepo[] = [];
         const stargazersMap = new Map<string, GitHubStargazer[]>();
 
-        const pool = new ConcurrencyPool(50);
-        const stageOneTasks: Promise<void>[] = [];
+        await Promise.all(
+          userRepos.map(async (repo) => {
+            let statusMsg = "";
+            try {
+              const { stargazers: firstPageStars, incomplete } =
+                await fetchRepoStargazersFirstPage(repo.full_name);
 
-        for (const repo of userRepos) {
-          stageOneTasks.push(
-            new Promise<void>((resolve) => {
-              pool.add(async () => {
-                let statusMsg = "";
-                try {
-                  const { stargazers: firstPageStars, incomplete } =
-                    await fetchRepoStargazersFirstPage(repo.full_name);
+              stargazersMap.set(repo.full_name, firstPageStars);
 
-                  stargazersMap.set(repo.full_name, firstPageStars);
-
-                  if (!incomplete) {
-                    statusMsg = `✅ Fetched ${firstPageStars.length} stars (complete)`;
-                  } else {
-                    statusMsg = `🔄 Fetched ${firstPageStars.length} stars... more pages pending`;
-                    incompleteRepos.push(repo);
-                  }
-                } catch (err) {
-                  console.error(
-                    `Error fetching first page for ${repo.full_name}:`,
-                    err
-                  );
-                  statusMsg = `❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`;
-                } finally {
-                  setProcessedItemsCount((prev) => prev + 1);
-                  setLoadingLog((prev) => [
-                    ...prev,
-                    { name: repo.full_name, status: statusMsg },
-                  ]);
-                  resolve();
-                }
-              });
-            })
-          );
-        }
-
-        await Promise.all(stageOneTasks);
-        await pool.awaitAll();
+              if (!incomplete) {
+                statusMsg = `✅ Fetched ${firstPageStars.length} stars (complete)`;
+              } else {
+                statusMsg = `🔄 Fetched ${firstPageStars.length} stars... more pages pending`;
+                incompleteRepos.push(repo);
+              }
+            } catch (err) {
+              console.error(
+                `Error fetching first page for ${repo.full_name}:`,
+                err
+              );
+              statusMsg = `❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`;
+            } finally {
+              setProcessedItemsCount((prev) => prev + 1);
+              setLoadingLog((prev) => [
+                ...prev,
+                { name: repo.full_name, status: statusMsg },
+              ]);
+            }
+          })
+        );
 
         if (incompleteRepos.length > 0) {
           setCurrentStage(2);
@@ -249,9 +237,8 @@ const GitHubStarTracker: React.FC = () => {
             },
           ]);
 
-          const { ConcurrencyPool, fetchStargazersInRange } = await import(
-            "@/services/githubHeavy"
-          );
+          const { ConcurrencyPool } = await import("@/services/concurrency");
+          const { fetchStargazersInRange } = await import("@/services/githubHeavy");
           const pool = new ConcurrencyPool(50);
           const promises: Promise<void>[] = [];
           for (const repo of incompleteRepos) {
