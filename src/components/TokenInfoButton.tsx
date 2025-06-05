@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -24,20 +24,28 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
   const [limit, setLimit] = useState<number | null>(null);
   const [used, setUsed] = useState<number | null>(null);
   const [reset, setReset] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string>("");
 
-  const handleOpenChange = async (value: boolean) => {
-    setOpen(value);
-    if (value) {
-      setLoading(true);
-      const info = await fetchRateLimit();
-      if (info) {
-        setLimit(info.limit);
-        setUsed(info.used);
-        setReset(info.reset);
-      }
-      setLoading(false);
+  const fetchAndSetData = useCallback(async () => {
+    setLoading(true);
+    const info = await fetchRateLimit();
+    if (info) {
+      setLimit(info.limit);
+      setUsed(info.used);
+      setReset(info.reset);
     }
-  };
+    setLoading(false);
+  }, []);
+
+  const handleOpenChange = useCallback(
+    async (value: boolean) => {
+      setOpen(value);
+      if (value) {
+        await fetchAndSetData();
+      }
+    },
+    [fetchAndSetData]
+  );
 
   const handleReset = () => {
     clearGitHubToken();
@@ -48,31 +56,61 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
 
   const progress = limit !== null && used !== null ? (used / limit) * 100 : 0;
 
-  const getFormattedResetTime = (resetTimestamp: number): string => {
-    const now = new Date();
-    const resetDate = new Date(resetTimestamp * 1000);
-    const secondsRemaining = differenceInSeconds(resetDate, now);
+  useEffect(() => {
+    if (!open || reset === null) {
+      setTimeLeft("");
+      return;
+    }
 
-    if (secondsRemaining <= 0) {
-      return "now";
-    }
-    if (secondsRemaining < 60) {
-      return formatDistanceStrict(resetDate, now, {
-        unit: "second",
-        addSuffix: true,
-      });
-    }
-    if (secondsRemaining < 3600) {
-      return formatDistanceStrict(resetDate, now, {
-        unit: "minute",
-        addSuffix: true,
-      });
-    }
-    return formatDistanceStrict(resetDate, now, {
-      unit: "hour",
-      addSuffix: true,
-    });
-  };
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const resetDate = new Date(reset * 1000);
+      const secondsRemaining = differenceInSeconds(resetDate, now);
+
+      if (secondsRemaining <= 0) {
+        setTimeLeft("now");
+        // Automatically refresh data when time is up
+        handleOpenChange(true);
+        return null; // Indicate to clear interval
+      }
+      if (secondsRemaining < 60) {
+        setTimeLeft(
+          formatDistanceStrict(resetDate, now, {
+            unit: "second",
+            addSuffix: true,
+          })
+        );
+      } else if (secondsRemaining < 3600) {
+        setTimeLeft(
+          formatDistanceStrict(resetDate, now, {
+            unit: "minute",
+            addSuffix: true,
+          })
+        );
+      } else {
+        setTimeLeft(
+          formatDistanceStrict(resetDate, now, {
+            unit: "hour",
+            addSuffix: true,
+          })
+        );
+      }
+      return secondsRemaining;
+    };
+
+    // Initial calculation
+    const initialSeconds = calculateTimeLeft();
+    if (initialSeconds === null) return; // Already refreshed
+
+    const intervalId = setInterval(() => {
+      const seconds = calculateTimeLeft();
+      if (seconds === null) {
+        clearInterval(intervalId);
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [open, reset, handleOpenChange]);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -95,9 +133,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
                 <p className="text-sm text-muted-foreground mt-1">
                   {used} / {limit} used
                 </p>
-                <p className="text-sm">
-                  Limit resets {getFormattedResetTime(reset)}
-                </p>
+                <p className="text-sm">Limit resets {timeLeft}</p>
               </div>
             )}
           </div>
