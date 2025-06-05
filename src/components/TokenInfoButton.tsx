@@ -29,6 +29,9 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
 
   const fetchAndSetData = useCallback(async () => {
     setLoading(true);
+    setLimit(null);
+    setUsed(null);
+    setReset(null);
     const info = await fetchRateLimit();
     if (info) {
       setLimit(info.limit);
