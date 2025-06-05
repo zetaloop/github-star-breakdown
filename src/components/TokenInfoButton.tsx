@@ -225,20 +225,35 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
               </Button>
             </div>
             <div className="space-y-2">
-              <Progress value={restLimit !== null && restUsed !== null ? restProgress : 0} />
+              <Progress
+                value={
+                  restLimit !== null && restUsed !== null ? restProgress : 0
+                }
+              />
               <p className="text-sm text-muted-foreground mt-1">
-                REST: {restLimit !== null && restUsed !== null ? `${restUsed} / ${restLimit}` : "- / -"}
+                REST:{" "}
+                {restLimit !== null && restUsed !== null
+                  ? `${restUsed} / ${restLimit}`
+                  : "- / -"}
               </p>
               <p className="text-sm">
                 {loading
                   ? "Checking..."
-                  : restLimit === null || restUsed === null || restReset === null
+                  : restLimit === null ||
+                      restUsed === null ||
+                      restReset === null
                     ? "No token data"
                     : `Resets ${timeLeft}`}
               </p>
-              <Progress value={gqlLimit !== null && gqlUsed !== null ? gqlProgress : 0} className="mt-2" />
+              <Progress
+                value={gqlLimit !== null && gqlUsed !== null ? gqlProgress : 0}
+                className="mt-2"
+              />
               <p className="text-sm text-muted-foreground mt-1">
-                GraphQL: {gqlLimit !== null && gqlUsed !== null ? `${gqlUsed} / ${gqlLimit}` : "- / -"}
+                GraphQL:{" "}
+                {gqlLimit !== null && gqlUsed !== null
+                  ? `${gqlUsed} / ${gqlLimit}`
+                  : "- / -"}
               </p>
               <p className="text-sm">
                 {loading

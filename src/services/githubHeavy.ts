@@ -153,11 +153,16 @@ export const fetchStargazersInRangeGraphQL = async (
       throw new Error(json.errors[0].message);
     }
     const conn = json.data.repository.stargazers;
-    const stars: GitHubStargazer[] = conn.edges.map((e: any) => ({
+    type Edge = { starredAt: string; node: { login: string } };
+    const stars: GitHubStargazer[] = conn.edges.map((e: Edge) => ({
       starred_at: e.starredAt,
       user: { login: e.node.login },
     }));
-    return { stars, cursor: conn.pageInfo.endCursor, hasNext: conn.pageInfo.hasNextPage };
+    return {
+      stars,
+      cursor: conn.pageInfo.endCursor,
+      hasNext: conn.pageInfo.hasNextPage,
+    };
   };
 
   let currentPage = 1;

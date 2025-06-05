@@ -148,8 +148,7 @@ export const fetchRepoStargazersFirstPage = (
         await waitIfPaused();
         const rest = getRestRemaining();
         const graph = getGraphQLRemaining();
-        const useGraph =
-          graph !== null && (rest === null || graph > rest);
+        const useGraph = graph !== null && (rest === null || graph > rest);
 
         if (useGraph) {
           try {
@@ -157,14 +156,14 @@ export const fetchRepoStargazersFirstPage = (
             const token = getGitHubToken();
             if (!token) throw new Error("GitHub token required for stargazers");
             const query = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){stargazers(first:100,orderBy:{field:STARRED_AT,direction:ASC}){totalCount pageInfo{hasNextPage endCursor} edges{starredAt node{login}}}}}`;
-          await waitIfPaused();
-          const response = await fetch("https://api.github.com/graphql", {
-            method: "POST",
-            headers: {
-              Authorization: `bearer ${token}`,
-            },
-            body: JSON.stringify({ query, variables: { owner, name } }),
-          });
+            await waitIfPaused();
+            const response = await fetch("https://api.github.com/graphql", {
+              method: "POST",
+              headers: {
+                Authorization: `bearer ${token}`,
+              },
+              body: JSON.stringify({ query, variables: { owner, name } }),
+            });
             recordGraphQLCall();
             if (!response.ok) {
               reject(
@@ -180,7 +179,8 @@ export const fetchRepoStargazersFirstPage = (
               return;
             }
             const conn = json.data.repository.stargazers;
-            const stars: GitHubStargazer[] = conn.edges.map((e: any) => ({
+            type Edge = { starredAt: string; node: { login: string } };
+            const stars: GitHubStargazer[] = conn.edges.map((e: Edge) => ({
               starred_at: e.starredAt,
               user: { login: e.node.login },
             }));
@@ -239,7 +239,11 @@ export const fetchRepoStargazersFirstPage = (
           }
           const firstPageData: GitHubStargazer[] = await response.json();
           const moreData = firstPageData.length === 100;
-          resolve({ stargazers: firstPageData, incomplete: moreData, lastPage });
+          resolve({
+            stargazers: firstPageData,
+            incomplete: moreData,
+            lastPage,
+          });
         }
       } catch (err) {
         reject(err);
@@ -410,25 +414,28 @@ export const fetchRestRateLimit = async (): Promise<RateLimitInfo | null> => {
   }
 };
 
-export const fetchGraphQLRateLimit = async (): Promise<RateLimitInfo | null> => {
-  const token = getGitHubToken();
-  if (!token) return null;
-  try {
-    const query = `{ rateLimit { limit remaining resetAt } }`;
-    const response = await fetch("https://api.github.com/graphql", {
-      method: "POST",
-      headers: { Authorization: `bearer ${token}` },
-      body: JSON.stringify({ query }),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch GraphQL rate limit: ${response.status}`);
+export const fetchGraphQLRateLimit =
+  async (): Promise<RateLimitInfo | null> => {
+    const token = getGitHubToken();
+    if (!token) return null;
+    try {
+      const query = `{ rateLimit { limit remaining resetAt } }`;
+      const response = await fetch("https://api.github.com/graphql", {
+        method: "POST",
+        headers: { Authorization: `bearer ${token}` },
+        body: JSON.stringify({ query }),
+      });
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch GraphQL rate limit: ${response.status}`
+        );
+      }
+      const data = await response.json();
+      const rl = data.data.rateLimit;
+      const reset = Math.floor(new Date(rl.resetAt).getTime() / 1000);
+      return { limit: rl.limit, used: rl.limit - rl.remaining, reset };
+    } catch (error) {
+      console.error("Error fetching GraphQL rate limit:", error);
+      return null;
     }
-    const data = await response.json();
-    const rl = data.data.rateLimit;
-    const reset = Math.floor(new Date(rl.resetAt).getTime() / 1000);
-    return { limit: rl.limit, used: rl.limit - rl.remaining, reset };
-  } catch (error) {
-    console.error("Error fetching GraphQL rate limit:", error);
-    return null;
-  }
-};
+  };
