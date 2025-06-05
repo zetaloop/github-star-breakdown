@@ -80,8 +80,8 @@ export const fetchStargazersInRange = async (
     if (stars.length === 0) {
       return { stars, pageNewest: null, pageOldest: null };
     }
-    const pageNewest = new Date(stars[0].starred_at);
-    const pageOldest = new Date(stars[stars.length - 1].starred_at);
+    const pageOldest = new Date(stars[0].starred_at);
+    const pageNewest = new Date(stars[stars.length - 1].starred_at);
     return { stars, pageNewest, pageOldest };
   };
 
@@ -97,17 +97,17 @@ export const fetchStargazersInRange = async (
       onProgress();
       if (!stars.length || !pageNewest || !pageOldest) return;
 
-      if (until && pageNewest > until) {
-        const skipped = mid - s;
-        if (skipped > 0) onProgress(skipped);
-        recur(mid + 1, e);
-        return;
-      }
-
-      if (since && pageOldest < since) {
+      if (until && pageOldest > until) {
         const skipped = e - mid;
         if (skipped > 0) onProgress(skipped);
         recur(s, mid - 1);
+        return;
+      }
+
+      if (since && pageNewest < since) {
+        const skipped = mid - s;
+        if (skipped > 0) onProgress(skipped);
+        recur(mid + 1, e);
         return;
       }
 
