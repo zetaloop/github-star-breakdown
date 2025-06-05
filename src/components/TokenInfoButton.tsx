@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -28,6 +29,9 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
 
   const fetchAndSetData = useCallback(async () => {
     setLoading(true);
+    setLimit(null);
+    setUsed(null);
+    setReset(null);
     const info = await fetchRateLimit();
     if (info) {
       setLimit(info.limit);
@@ -124,20 +128,37 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
       <PopoverContent className="w-64">
         <div className="space-y-3">
           <div className="space-y-2">
-            <p className="text-sm font-medium">API Usage</p>
-            {loading ? (
-              <p className="text-sm text-muted-foreground mt-1">Checking...</p>
-            ) : limit === null || used === null || reset === null ? (
-              <p className="text-sm">No token data</p>
-            ) : (
-              <div className="space-y-2">
-                <Progress value={progress} />
-                <p className="text-sm text-muted-foreground mt-1">
-                  {used} / {limit} used
-                </p>
-                <p className="text-sm">Limit resets {timeLeft}</p>
-              </div>
-            )}
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">API Usage</p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={fetchAndSetData}
+                disabled={loading}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                <span className="sr-only">Refresh usage</span>
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Progress
+                value={limit !== null && used !== null ? progress : 0}
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                {limit !== null && used !== null
+                  ? `${used} / ${limit}`
+                  : "? / ?"}{" "}
+                used
+              </p>
+              <p className="text-sm">
+                {loading
+                  ? "Checking..."
+                  : limit === null || used === null || reset === null
+                    ? "No token data"
+                    : `Limit resets ${timeLeft}`}
+              </p>
+            </div>
           </div>
           <Button
             variant="destructive"
