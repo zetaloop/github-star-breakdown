@@ -237,9 +237,8 @@ const GitHubStarTracker: React.FC = () => {
             },
           ]);
 
-          const { ConcurrencyPool, fetchStargazersInRange } = await import(
-            "@/services/githubHeavy"
-          );
+          const { ConcurrencyPool } = await import("@/services/concurrency");
+          const { fetchStargazersInRange } = await import("@/services/githubHeavy");
           const pool = new ConcurrencyPool(50);
           const promises: Promise<void>[] = [];
           for (const repo of incompleteRepos) {
