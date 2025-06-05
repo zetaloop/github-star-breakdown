@@ -14,6 +14,11 @@ export class ConcurrencyPool {
   }
 
   add(taskFunc: () => Promise<void>) {
+    if (this.activeCount === 0 && this.queue.length === 0) {
+      this.donePromise = new Promise((resolve) => {
+        this.allDone = [resolve];
+      });
+    }
     this.queue.push(taskFunc);
     this.runNext();
   }
