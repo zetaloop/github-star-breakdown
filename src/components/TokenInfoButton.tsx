@@ -70,7 +70,9 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
       if (secondsRemaining <= 0) {
         setTimeLeft("now");
         // Automatically refresh data when time is up
-        handleOpenChange(true);
+        setTimeout(() => {
+          handleOpenChange(true);
+        }, 1000);
         return null; // Indicate to clear interval
       }
       if (secondsRemaining < 60) {
