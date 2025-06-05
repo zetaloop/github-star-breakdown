@@ -86,6 +86,9 @@ export const fetchStargazersInRange = async (
   };
 
   const scheduled = new Set<number>();
+  const fetchedPages: number[] = [];
+  const skippedPages: number[] = [];
+  const predictedPages: number[] = [];
 
   const recur = (s: number, e: number): void => {
     if (s > e) return;
@@ -95,22 +98,34 @@ export const fetchStargazersInRange = async (
     pool.add(async () => {
       const { stars, pageNewest, pageOldest } = await fetchPage(mid);
       onProgress();
-      if (!stars.length || !pageNewest || !pageOldest) return;
+      if (!stars.length || !pageNewest || !pageOldest) {
+        skippedPages.push(mid);
+        return;
+      }
 
       if (until && pageOldest > until) {
         const skipped = e - mid;
-        if (skipped > 0) onProgress(skipped);
+        if (skipped > 0) {
+          onProgress(skipped);
+          for (let p = mid + 1; p <= e; p++) predictedPages.push(p);
+        }
+        skippedPages.push(mid);
         recur(s, mid - 1);
         return;
       }
 
       if (since && pageNewest < since) {
         const skipped = mid - s;
-        if (skipped > 0) onProgress(skipped);
+        if (skipped > 0) {
+          onProgress(skipped);
+          for (let p = s; p < mid; p++) predictedPages.push(p);
+        }
+        skippedPages.push(mid);
         recur(mid + 1, e);
         return;
       }
 
+      fetchedPages.push(mid);
       saveStars(stars);
       recur(s, mid - 1);
       recur(mid + 1, e);
@@ -124,4 +139,12 @@ export const fetchStargazersInRange = async (
   }
   recur(startPage, endPage);
   await pool.awaitAll();
+
+  if (fetchedPages.length + skippedPages.length + predictedPages.length > 0) {
+    console.log(`Repo ${repoFullName} fetch summary`, {
+      fetched: fetchedPages.sort((a, b) => a - b),
+      skipped: skippedPages.sort((a, b) => a - b),
+      predicted: predictedPages.sort((a, b) => a - b),
+    });
+  }
 };

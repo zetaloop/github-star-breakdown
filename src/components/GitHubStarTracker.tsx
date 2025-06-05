@@ -197,8 +197,8 @@ const GitHubStarTracker: React.FC = () => {
                 ? repo.stargazers_count
                 : 0;
             if (totalStars > firstPageStarsCount) {
-              const startPage = 2;
-              let endPage = Math.ceil(totalStars / 100);
+              const endPage = Math.ceil(totalStars / 100);
+              let startPage = 2;
 
               if (
                 (timeRangeInput === "year" || timeRangeInput === "custom") &&
@@ -214,7 +214,7 @@ const GitHubStarTracker: React.FC = () => {
                   repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
                 const estimatedStarsInRange = Math.ceil(totalStars * fraction);
                 const pagesInRange = Math.ceil(estimatedStarsInRange / 100);
-                endPage = Math.max(startPage, pagesInRange);
+                startPage = Math.max(2, endPage - pagesInRange + 1);
               }
 
               totalPagesToProcessForStage2 += endPage - startPage + 1;
