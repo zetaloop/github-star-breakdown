@@ -27,7 +27,7 @@ export const clearGitHubToken = (): void => {
   localStorage.removeItem("github_token");
 };
 
-class ConcurrencyPool {
+export class ConcurrencyPool {
   private queue: Array<() => Promise<void>> = [];
   private activeCount = 0;
   private limit: number;
