@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -124,7 +125,19 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
       <PopoverContent className="w-64">
         <div className="space-y-3">
           <div className="space-y-2">
-            <p className="text-sm font-medium">API Usage</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">API Usage</p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={fetchAndSetData}
+                disabled={loading}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                <span className="sr-only">Refresh usage</span>
+              </Button>
+            </div>
             {loading ? (
               <p className="text-sm text-muted-foreground mt-1">Checking...</p>
             ) : limit === null || used === null || reset === null ? (
