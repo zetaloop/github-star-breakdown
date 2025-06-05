@@ -14,12 +14,17 @@ export class ConcurrencyPool {
   }
 
   add(taskFunc: () => Promise<void>) {
+    if (this.activeCount === 0 && this.queue.length === 0) {
+      this.donePromise = new Promise((resolve) => {
+        this.allDone = [resolve];
+      });
+    }
     this.queue.push(taskFunc);
     this.runNext();
   }
 
   private runNext() {
-    if (this.activeCount < this.limit && this.queue.length > 0) {
+    while (this.activeCount < this.limit && this.queue.length > 0) {
       const taskFunc = this.queue.shift()!;
       this.activeCount++;
       taskFunc().finally(() => {
@@ -75,37 +80,56 @@ export const fetchStargazersInRange = async (
     if (stars.length === 0) {
       return { stars, pageNewest: null, pageOldest: null };
     }
-    const pageNewest = new Date(stars[0].starred_at);
-    const pageOldest = new Date(stars[stars.length - 1].starred_at);
+    const pageOldest = new Date(stars[0].starred_at);
+    const pageNewest = new Date(stars[stars.length - 1].starred_at);
     return { stars, pageNewest, pageOldest };
   };
 
   const scheduled = new Set<number>();
+  const fetchedPages: number[] = [];
+  const skippedPages: number[] = [];
+  const predictedPages: number[] = [];
 
   const recur = (s: number, e: number): void => {
     if (s > e) return;
     const mid = Math.floor((s + e) / 2);
-    if (scheduled.has(mid)) return;
+    if (scheduled.has(mid)) {
+      recur(s, mid - 1);
+      recur(mid + 1, e);
+      return;
+    }
     scheduled.add(mid);
     pool.add(async () => {
       const { stars, pageNewest, pageOldest } = await fetchPage(mid);
       onProgress();
-      if (!stars.length || !pageNewest || !pageOldest) return;
-
-      if (until && pageNewest > until) {
-        const skipped = mid - s;
-        if (skipped > 0) onProgress(skipped);
-        recur(mid + 1, e);
+      if (!stars.length || !pageNewest || !pageOldest) {
+        skippedPages.push(mid);
         return;
       }
 
-      if (since && pageOldest < since) {
+      if (until && pageOldest > until) {
         const skipped = e - mid;
-        if (skipped > 0) onProgress(skipped);
+        if (skipped > 0) {
+          onProgress(skipped);
+          for (let p = mid + 1; p <= e; p++) predictedPages.push(p);
+        }
+        skippedPages.push(mid);
         recur(s, mid - 1);
         return;
       }
 
+      if (since && pageNewest < since) {
+        const skipped = mid - s;
+        if (skipped > 0) {
+          onProgress(skipped);
+          for (let p = s; p < mid; p++) predictedPages.push(p);
+        }
+        skippedPages.push(mid);
+        recur(mid + 1, e);
+        return;
+      }
+
+      fetchedPages.push(mid);
       saveStars(stars);
       recur(s, mid - 1);
       recur(mid + 1, e);
@@ -119,4 +143,12 @@ export const fetchStargazersInRange = async (
   }
   recur(startPage, endPage);
   await pool.awaitAll();
+
+  if (fetchedPages.length + skippedPages.length + predictedPages.length > 0) {
+    console.log(`Repo ${repoFullName} fetch summary`, {
+      fetched: fetchedPages.sort((a, b) => a - b),
+      skipped: skippedPages.sort((a, b) => a - b),
+      predicted: predictedPages.sort((a, b) => a - b),
+    });
+  }
 };
