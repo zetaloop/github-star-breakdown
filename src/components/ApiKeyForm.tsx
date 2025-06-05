@@ -63,49 +63,56 @@ const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ onTokenValidated }) => {
           token needs to have 'repo' and 'read:user' scopes.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="github-token">GitHub Personal Access Token</Label>
-            <Input
-              id="github-token"
-              type="text"
-              placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              autoComplete="off"
-              style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
-            />
-            <p className="text-sm text-muted-foreground">
-              <a
-                href="https://github.com/settings/tokens/new"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                Create a new token
-              </a>
-              , if you don't have one.
-            </p>
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 text-destructive text-sm">
-              <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          validateAndSetToken();
+        }}
+      >
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="github-token">GitHub Personal Access Token</Label>
+              <Input
+                id="github-token"
+                type="text"
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                autoComplete="off"
+                style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
+              />
+              <p className="text-sm text-muted-foreground">
+                <a
+                  href="https://github.com/settings/tokens/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Create a new token
+                </a>
+                , if you don't have one.
+              </p>
             </div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button
-          onClick={validateAndSetToken}
-          disabled={isValidating}
-          className="w-full bg-github-blue hover:bg-github-darkBlue text-destructive-foreground"
-        >
-          {isValidating ? "Validating..." : "Set Token"}
-        </Button>
-      </CardFooter>
+
+            {error && (
+              <div className="flex items-center gap-2 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button
+            type="submit"
+            disabled={isValidating}
+            className="w-full bg-github-blue hover:bg-github-darkBlue text-destructive-foreground"
+          >
+            {isValidating ? "Validating..." : "Set Token"}
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   );
 };
