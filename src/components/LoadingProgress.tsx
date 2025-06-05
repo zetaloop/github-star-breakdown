@@ -11,6 +11,8 @@ interface LoadingProgressProps {
   processedRepos: number;
   log: Array<{ name: string; status: string }>;
   currentStage: LoadingStage;
+  paused: boolean;
+  onToggle: () => void;
 }
 
 const LoadingProgress: React.FC<LoadingProgressProps> = ({
@@ -18,6 +20,8 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   processedRepos,
   log,
   currentStage,
+  paused,
+  onToggle,
 }) => {
   const progressPercentage =
     totalRepos > 0 ? (processedRepos / totalRepos) * 100 : 0;
@@ -77,6 +81,13 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       <div className="space-y-2">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>{progressText}</span>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="text-xs underline"
+          >
+            {paused ? "Resume" : "Pause"}
+          </button>
         </div>
         <Progress
           key={currentStage}

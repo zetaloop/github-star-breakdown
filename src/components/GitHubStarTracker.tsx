@@ -18,6 +18,7 @@ import {
   fetchRepoStargazersFirstPage,
   RateLimitError,
 } from "@/services/github";
+import { setPaused, isPaused, checkAutoPause } from "@/services/apiUsage";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -43,6 +44,23 @@ const GitHubStarTracker: React.FC = () => {
     Array<{ name: string; status: string }>
   >([]);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
+  const [paused, setPausedState] = useState<boolean>(false);
+
+  const togglePause = useCallback(() => {
+    setPausedState((p) => {
+      setPaused(!p);
+      return !p;
+    });
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (isPaused() && !paused) {
+        setPausedState(true);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [paused]);
 
   const handleResetToken = () => {
     clearGitHubToken();
@@ -384,6 +402,8 @@ const GitHubStarTracker: React.FC = () => {
               processedRepos={processedItemsCount}
               log={loadingLog}
               currentStage={currentStage}
+              paused={paused}
+              onToggle={togglePause}
             />
           ) : (
             username &&

@@ -7,7 +7,11 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { fetchRateLimit, clearGitHubToken } from "@/services/github";
+import {
+  fetchRestRateLimit,
+  fetchGraphQLRateLimit,
+  clearGitHubToken,
+} from "@/services/github";
 import { formatDistanceStrict, differenceInSeconds } from "date-fns";
 import { toast } from "sonner";
 
@@ -22,19 +26,30 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [limit, setLimit] = useState<number | null>(null);
-  const [used, setUsed] = useState<number | null>(null);
-  const [reset, setReset] = useState<number | null>(null);
+  const [restLimit, setRestLimit] = useState<number | null>(null);
+  const [restUsed, setRestUsed] = useState<number | null>(null);
+  const [restReset, setRestReset] = useState<number | null>(null);
+  const [gqlLimit, setGqlLimit] = useState<number | null>(null);
+  const [gqlUsed, setGqlUsed] = useState<number | null>(null);
+  const [gqlReset, setGqlReset] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
+  const [gqlTimeLeft, setGqlTimeLeft] = useState<string>("");
 
   const fetchAndSetData = useCallback(async () => {
     setLoading(true);
-    setReset(null);
-    const info = await fetchRateLimit();
-    if (info) {
-      setLimit(info.limit);
-      setUsed(info.used);
-      setReset(info.reset);
+    setRestReset(null);
+    setGqlReset(null);
+    const restInfo = await fetchRestRateLimit();
+    const gqlInfo = await fetchGraphQLRateLimit();
+    if (restInfo) {
+      setRestLimit(restInfo.limit);
+      setRestUsed(restInfo.used);
+      setRestReset(restInfo.reset);
+    }
+    if (gqlInfo) {
+      setGqlLimit(gqlInfo.limit);
+      setGqlUsed(gqlInfo.used);
+      setGqlReset(gqlInfo.reset);
     }
     setLoading(false);
   }, []);
@@ -43,8 +58,10 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
     async (value: boolean) => {
       setOpen(value);
       if (value) {
-        setLimit(null);
-        setUsed(null);
+        setRestLimit(null);
+        setRestUsed(null);
+        setGqlLimit(null);
+        setGqlUsed(null);
         await fetchAndSetData();
       }
     },
@@ -58,20 +75,23 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
     if (onReset) onReset();
   };
 
-  const progress = limit !== null && used !== null ? (used / limit) * 100 : 0;
+  const restProgress =
+    restLimit !== null && restUsed !== null ? (restUsed / restLimit) * 100 : 0;
+  const gqlProgress =
+    gqlLimit !== null && gqlUsed !== null ? (gqlUsed / gqlLimit) * 100 : 0;
 
   useEffect(() => {
-    if (reset === null) {
+    if (restReset === null) {
       setTimeLeft("");
     }
 
-    if (!open || reset === null) {
+    if (!open || restReset === null) {
       return;
     }
 
     const calculateTimeLeft = () => {
       const now = new Date();
-      const resetDate = new Date(reset * 1000);
+      const resetDate = new Date(restReset * 1000);
       const secondsRemaining = differenceInSeconds(resetDate, now);
 
       if (secondsRemaining <= 0) {
@@ -119,7 +139,67 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [open, reset, handleOpenChange]);
+  }, [open, restReset, handleOpenChange]);
+
+  useEffect(() => {
+    if (gqlReset === null) {
+      setGqlTimeLeft("");
+    }
+
+    if (!open || gqlReset === null) {
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const resetDate = new Date(gqlReset * 1000);
+      const secondsRemaining = differenceInSeconds(resetDate, now);
+
+      if (secondsRemaining <= 0) {
+        setGqlTimeLeft("now");
+        setTimeout(() => {
+          handleOpenChange(true);
+        }, 1000);
+        return null;
+      }
+
+      if (secondsRemaining < 60) {
+        setGqlTimeLeft(
+          formatDistanceStrict(resetDate, now, {
+            unit: "second",
+            addSuffix: true,
+          })
+        );
+      } else if (secondsRemaining < 3600) {
+        setGqlTimeLeft(
+          formatDistanceStrict(resetDate, now, {
+            unit: "minute",
+            addSuffix: true,
+          })
+        );
+      } else {
+        setGqlTimeLeft(
+          formatDistanceStrict(resetDate, now, {
+            unit: "hour",
+            addSuffix: true,
+          })
+        );
+      }
+      return secondsRemaining;
+    };
+
+    const initialSeconds = calculateTimeLeft();
+    if (initialSeconds === null) return;
+
+    const id = setInterval(() => {
+      const seconds = calculateTimeLeft();
+      if (seconds === null) {
+        clearInterval(id);
+      }
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [open, gqlReset, handleOpenChange]);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -145,21 +225,27 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
               </Button>
             </div>
             <div className="space-y-2">
-              <Progress
-                value={limit !== null && used !== null ? progress : 0}
-              />
+              <Progress value={restLimit !== null && restUsed !== null ? restProgress : 0} />
               <p className="text-sm text-muted-foreground mt-1">
-                {limit !== null && used !== null
-                  ? `${used} / ${limit}`
-                  : "- / -"}{" "}
-                used
+                REST: {restLimit !== null && restUsed !== null ? `${restUsed} / ${restLimit}` : "- / -"}
               </p>
               <p className="text-sm">
                 {loading
                   ? "Checking..."
-                  : limit === null || used === null || reset === null
+                  : restLimit === null || restUsed === null || restReset === null
                     ? "No token data"
-                    : `Limit resets ${timeLeft}`}
+                    : `Resets ${timeLeft}`}
+              </p>
+              <Progress value={gqlLimit !== null && gqlUsed !== null ? gqlProgress : 0} className="mt-2" />
+              <p className="text-sm text-muted-foreground mt-1">
+                GraphQL: {gqlLimit !== null && gqlUsed !== null ? `${gqlUsed} / ${gqlLimit}` : "- / -"}
+              </p>
+              <p className="text-sm">
+                {loading
+                  ? "Checking..."
+                  : gqlLimit === null || gqlUsed === null || gqlReset === null
+                    ? "No token data"
+                    : `Resets ${gqlTimeLeft}`}
               </p>
             </div>
           </div>

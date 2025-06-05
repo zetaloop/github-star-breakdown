@@ -4,6 +4,14 @@ import {
   RepoStarHistoryItem,
 } from "@/types/github";
 import { ConcurrencyPool } from "./concurrency";
+import {
+  updateRateLimits,
+  getRestRemaining,
+  getGraphQLRemaining,
+  recordRestCall,
+  recordGraphQLCall,
+  waitIfPaused,
+} from "./apiUsage";
 
 export class RateLimitError extends Error {
   public resetTimestamp?: number;
@@ -44,10 +52,12 @@ export const fetchUserRepos = async (
   let processedPages = 0;
 
   // Fetch the first page synchronously to get total pages
+  await waitIfPaused();
   const firstResp = await fetch(
     `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=1&sort=updated`,
     { headers }
   );
+  recordRestCall();
   if (!firstResp.ok) {
     if (firstResp.status === 403) {
       const reset = firstResp.headers.get("X-RateLimit-Reset");
@@ -90,10 +100,12 @@ export const fetchUserRepos = async (
   const results: GitHubRepo[][] = Array(totalPages - 1);
   for (let page = 2; page <= totalPages; page++) {
     pool.add(async () => {
+      await waitIfPaused();
       const resp = await fetch(
         `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
         { headers }
       );
+      recordRestCall();
       if (!resp.ok) {
         if (resp.status === 403) {
           const reset = resp.headers.get("X-RateLimit-Reset");
@@ -132,49 +144,103 @@ export const fetchRepoStargazersFirstPage = (
   return new Promise((resolve, reject) => {
     firstPagePool.add(async () => {
       try {
-        const token = getGitHubToken();
-        if (!token) {
-          throw new Error("GitHub token required for stargazers");
-        }
-        const headers = {
-          Authorization: `token ${token}`,
-          Accept: "application/vnd.github.star+json",
-        };
-        const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=1`;
-        const response = await fetch(url, { headers });
-        if (!response.ok) {
-          if (response.status === 403) {
-            const reset = response.headers.get("X-RateLimit-Reset");
-            const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-            let message = `GitHub API rate limit exceeded fetching first page for ${repoFullName}.`;
-            if (resetTimestamp) {
-              message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+        await updateRateLimits();
+        await waitIfPaused();
+        const rest = getRestRemaining();
+        const graph = getGraphQLRemaining();
+        const useGraph =
+          graph !== null && (rest === null || graph > rest);
+
+        if (useGraph) {
+          try {
+            const [owner, name] = repoFullName.split("/");
+            const token = getGitHubToken();
+            if (!token) throw new Error("GitHub token required for stargazers");
+            const query = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){stargazers(first:100,orderBy:{field:STARRED_AT,direction:ASC}){totalCount pageInfo{hasNextPage endCursor} edges{starredAt node{login}}}}}`;
+          await waitIfPaused();
+          const response = await fetch("https://api.github.com/graphql", {
+            method: "POST",
+            headers: {
+              Authorization: `bearer ${token}`,
+            },
+            body: JSON.stringify({ query, variables: { owner, name } }),
+          });
+            recordGraphQLCall();
+            if (!response.ok) {
+              reject(
+                new Error(
+                  `GraphQL error fetching first page for ${repoFullName}: ${response.status}`
+                )
+              );
+              return;
             }
-            reject(new RateLimitError(message, resetTimestamp));
+            const json = await response.json();
+            if (json.errors) {
+              reject(new Error(json.errors[0].message));
+              return;
+            }
+            const conn = json.data.repository.stargazers;
+            const stars: GitHubStargazer[] = conn.edges.map((e: any) => ({
+              starred_at: e.starredAt,
+              user: { login: e.node.login },
+            }));
+            const total = conn.totalCount;
+            const moreData = conn.pageInfo.hasNextPage;
+            resolve({
+              stargazers: stars,
+              incomplete: moreData,
+              lastPage: Math.ceil(total / 100),
+            });
+          } catch (err) {
+            reject(err);
+          }
+        } else {
+          const token = getGitHubToken();
+          if (!token) {
+            throw new Error("GitHub token required for stargazers");
+          }
+          const headers = {
+            Authorization: `token ${token}`,
+            Accept: "application/vnd.github.star+json",
+          };
+          const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=1`;
+          await waitIfPaused();
+          const response = await fetch(url, { headers });
+          recordRestCall();
+          if (!response.ok) {
+            if (response.status === 403) {
+              const reset = response.headers.get("X-RateLimit-Reset");
+              const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+              let message = `GitHub API rate limit exceeded fetching first page for ${repoFullName}.`;
+              if (resetTimestamp) {
+                message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+              }
+              reject(new RateLimitError(message, resetTimestamp));
+              return;
+            }
+            reject(
+              new Error(
+                `GitHub API Error fetching first page for ${repoFullName}: ${response.status} - ${response.statusText}`
+              )
+            );
             return;
           }
-          reject(
-            new Error(
-              `GitHub API Error fetching first page for ${repoFullName}: ${response.status} - ${response.statusText}`
-            )
-          );
-          return;
-        }
-        const linkHeader = response.headers.get("Link");
-        let lastPage: number | undefined = undefined;
-        if (linkHeader) {
-          const links = linkHeader.split(",");
-          const lastPageLink = links.find((link) =>
-            link.includes('rel="last"')
-          );
-          if (lastPageLink) {
-            const match = lastPageLink.match(/[?&]page=(\d+)/);
-            if (match) lastPage = parseInt(match[1], 10);
+          const linkHeader = response.headers.get("Link");
+          let lastPage: number | undefined = undefined;
+          if (linkHeader) {
+            const links = linkHeader.split(",");
+            const lastPageLink = links.find((link) =>
+              link.includes('rel="last"')
+            );
+            if (lastPageLink) {
+              const match = lastPageLink.match(/[?&]page=(\d+)/);
+              if (match) lastPage = parseInt(match[1], 10);
+            }
           }
+          const firstPageData: GitHubStargazer[] = await response.json();
+          const moreData = firstPageData.length === 100;
+          resolve({ stargazers: firstPageData, incomplete: moreData, lastPage });
         }
-        const firstPageData: GitHubStargazer[] = await response.json();
-        const moreData = firstPageData.length === 100;
-        resolve({ stargazers: firstPageData, incomplete: moreData, lastPage });
       } catch (err) {
         reject(err);
       }
@@ -321,7 +387,7 @@ export interface RateLimitInfo {
   reset: number;
 }
 
-export const fetchRateLimit = async (): Promise<RateLimitInfo | null> => {
+export const fetchRestRateLimit = async (): Promise<RateLimitInfo | null> => {
   const token = getGitHubToken();
   if (!token) return null;
   try {
@@ -340,6 +406,29 @@ export const fetchRateLimit = async (): Promise<RateLimitInfo | null> => {
     };
   } catch (error) {
     console.error("Error fetching rate limit:", error);
+    return null;
+  }
+};
+
+export const fetchGraphQLRateLimit = async (): Promise<RateLimitInfo | null> => {
+  const token = getGitHubToken();
+  if (!token) return null;
+  try {
+    const query = `{ rateLimit { limit remaining resetAt } }`;
+    const response = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: { Authorization: `bearer ${token}` },
+      body: JSON.stringify({ query }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch GraphQL rate limit: ${response.status}`);
+    }
+    const data = await response.json();
+    const rl = data.data.rateLimit;
+    const reset = Math.floor(new Date(rl.resetAt).getTime() / 1000);
+    return { limit: rl.limit, used: rl.limit - rl.remaining, reset };
+  } catch (error) {
+    console.error("Error fetching GraphQL rate limit:", error);
     return null;
   }
 };
