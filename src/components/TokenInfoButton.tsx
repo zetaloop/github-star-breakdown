@@ -77,12 +77,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="link"
-          disabled={disabled}
-          className="text-foreground"
-        >
+        <Button type="button" variant="link" className="text-foreground">
           Token Info
         </Button>
       </PopoverTrigger>
@@ -110,6 +105,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
             variant="destructive"
             className="w-full"
             onClick={handleReset}
+            disabled={disabled}
           >
             Clear Token
           </Button>
