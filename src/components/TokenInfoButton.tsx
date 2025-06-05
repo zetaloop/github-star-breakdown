@@ -151,7 +151,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
               <p className="text-sm text-muted-foreground mt-1">
                 {limit !== null && used !== null
                   ? `${used} / ${limit}`
-                  : "? / ?"}{" "}
+                  : "- / -"}{" "}
                 used
               </p>
               <p className="text-sm">
