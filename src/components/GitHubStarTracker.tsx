@@ -148,15 +148,22 @@ const GitHubStarTracker: React.FC = () => {
 
         const incompleteRepos: GitHubRepo[] = [];
         const stargazersMap = new Map<string, GitHubStargazer[]>();
+        const lastPageMap: Record<string, number> = {};
 
         await Promise.all(
           userRepos.map(async (repo) => {
             let statusMsg = "";
             try {
-              const { stargazers: firstPageStars, incomplete } =
-                await fetchRepoStargazersFirstPage(repo.full_name);
+              const {
+                stargazers: firstPageStars,
+                incomplete,
+                lastPage,
+              } = await fetchRepoStargazersFirstPage(repo.full_name);
 
               stargazersMap.set(repo.full_name, firstPageStars);
+              if (lastPage) {
+                lastPageMap[repo.full_name] = lastPage;
+              }
 
               if (!incomplete) {
                 statusMsg = `✅ Fetched ${firstPageStars.length} stars (complete)`;
@@ -197,7 +204,8 @@ const GitHubStarTracker: React.FC = () => {
                 ? repo.stargazers_count
                 : 0;
             if (totalStars > firstPageStarsCount) {
-              const endPage = Math.ceil(totalStars / 100);
+              const endPage =
+                lastPageMap[repo.full_name] || Math.ceil(totalStars / 100);
               let startPage = 2;
 
               if (
@@ -238,7 +246,9 @@ const GitHubStarTracker: React.FC = () => {
           ]);
 
           const { ConcurrencyPool } = await import("@/services/concurrency");
-          const { fetchStargazersInRange } = await import("@/services/githubHeavy");
+          const { fetchStargazersInRange } = await import(
+            "@/services/githubHeavy"
+          );
           const pool = new ConcurrencyPool(50);
           const promises: Promise<void>[] = [];
           for (const repo of incompleteRepos) {

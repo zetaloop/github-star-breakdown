@@ -30,7 +30,6 @@ export const clearGitHubToken = (): void => {
 
 const firstPagePool = new ConcurrencyPool(50);
 
-
 export const fetchUserRepos = async (
   username: string,
   onProgress?: (processedDelta: number, totalPages?: number) => void
@@ -125,7 +124,11 @@ export const fetchUserRepos = async (
 
 export const fetchRepoStargazersFirstPage = (
   repoFullName: string
-): Promise<{ stargazers: GitHubStargazer[]; incomplete: boolean }> => {
+): Promise<{
+  stargazers: GitHubStargazer[];
+  incomplete: boolean;
+  lastPage?: number;
+}> => {
   return new Promise((resolve, reject) => {
     firstPagePool.add(async () => {
       try {
@@ -157,9 +160,21 @@ export const fetchRepoStargazersFirstPage = (
           );
           return;
         }
+        const linkHeader = response.headers.get("Link");
+        let lastPage: number | undefined = undefined;
+        if (linkHeader) {
+          const links = linkHeader.split(",");
+          const lastPageLink = links.find((link) =>
+            link.includes('rel="last"')
+          );
+          if (lastPageLink) {
+            const match = lastPageLink.match(/[?&]page=(\d+)/);
+            if (match) lastPage = parseInt(match[1], 10);
+          }
+        }
         const firstPageData: GitHubStargazer[] = await response.json();
         const moreData = firstPageData.length === 100;
-        resolve({ stargazers: firstPageData, incomplete: moreData });
+        resolve({ stargazers: firstPageData, incomplete: moreData, lastPage });
       } catch (err) {
         reject(err);
       }
