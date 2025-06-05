@@ -61,8 +61,11 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
   const progress = limit !== null && used !== null ? (used / limit) * 100 : 0;
 
   useEffect(() => {
-    if (!open || reset === null) {
+    if (reset === null) {
       setTimeLeft("");
+    }
+
+    if (!open || reset === null) {
       return;
     }
 
