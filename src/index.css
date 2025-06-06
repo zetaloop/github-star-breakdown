@@ -105,4 +105,30 @@
     position: absolute !important;
     z-index: 20 !important;
   }
+
+  /* Selectable log icons that copy as text when selected */
+  .log-icon-selectable {
+    position: relative;
+    user-select: text;
+    cursor: text;
+  }
+
+  .log-icon-selectable::before {
+    content: attr(data-copy-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: transparent;
+    font-size: 0;
+    line-height: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .log-icon-selectable svg {
+    position: relative;
+    z-index: 0;
+  }
 }

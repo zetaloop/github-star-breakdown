@@ -28,19 +28,65 @@ interface LoadingProgressProps {
 }
 
 const LogIcon = ({ type }: { type: LogEntry["type"] }) => {
+  const getTextRepresentation = (type: LogEntry["type"]) => {
+    return `[${type.toUpperCase()}]`;
+  };
+
   switch (type) {
     case "success":
-      return <CheckCircle2 className="h-3 w-3 text-green-500" />;
+      return (
+        <span
+          className="log-icon-selectable inline-block"
+          data-copy-text={getTextRepresentation(type)}
+        >
+          <CheckCircle2 className="h-3 w-3 text-green-500" />
+        </span>
+      );
     case "warning":
-      return <CircleHelp className="h-3 w-3 text-yellow-500" />;
+      return (
+        <span
+          className="log-icon-selectable inline-block"
+          data-copy-text={getTextRepresentation(type)}
+        >
+          <CircleHelp className="h-3 w-3 text-yellow-500" />
+        </span>
+      );
     case "error":
-      return <XCircle className="h-3 w-3 text-red-500" />;
+      return (
+        <span
+          className="log-icon-selectable inline-block"
+          data-copy-text={getTextRepresentation(type)}
+        >
+          <XCircle className="h-3 w-3 text-red-500" />
+        </span>
+      );
     case "info":
-      return <Info className="h-3 w-3 text-blue-500" />;
+      return (
+        <span
+          className="log-icon-selectable inline-block"
+          data-copy-text={getTextRepresentation(type)}
+        >
+          <Info className="h-3 w-3 text-blue-500" />
+        </span>
+      );
     case "stage":
-      return <ChevronsRight className="h-3 w-3 text-gray-500" />;
+      return (
+        <span
+          className="log-icon-selectable inline-block"
+          data-copy-text={getTextRepresentation(type)}
+        >
+          <ChevronsRight className="h-3 w-3 text-gray-500" />
+        </span>
+      );
     case "debug":
-      return <CircleEllipsis className="h-3 w-3 text-purple-500" />;
+      return (
+        <span
+          className="log-icon-selectable inline-block"
+          data-copy-text={getTextRepresentation(type)}
+        >
+          <CircleEllipsis className="h-3 w-3 text-purple-500" />
+        </span>
+      );
     default:
       return null;
   }
