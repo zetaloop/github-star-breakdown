@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-type LoadingStage = 0 | 1 | 2;
+type LoadingStage = 0 | 1;
 
 interface LoadingProgressProps {
   totalRepos: number;
@@ -54,15 +54,9 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       }
       break;
     case 1:
-      barColorClass = "bg-blue-500";
-      barBgClass = "bg-gray-400";
-      progressText = `Fetching first page of stars... ${processedRepos}/${totalRepos} repos`;
-      logPrefixFn = (index, total) => `[Repo ${index + 1}/${total}]`;
-      break;
-    case 2:
       barColorClass = "bg-green-500";
-      barBgClass = "bg-blue-500";
-      progressText = `Loading remaining pages... ${processedRepos}/${totalRepos} pages`;
+      barBgClass = "bg-gray-400";
+      progressText = `Loading star history... ${processedRepos}/${totalRepos} pages`;
       logPrefixFn = (index) => `[Star Page ${index + 1}]`;
       break;
     default:

@@ -22,7 +22,7 @@ import { AlertCircle } from "lucide-react";
 import { ConcurrencyPool } from "@/services/concurrency";
 import { fetchStargazerPage } from "@/services/githubHeavy";
 
-type LoadingStage = 0 | 1 | 2 | null;
+type LoadingStage = 0 | 1 | null;
 
 const GitHubStarTracker: React.FC = () => {
   const [hasValidToken, setHasValidToken] =
@@ -150,7 +150,7 @@ const GitHubStarTracker: React.FC = () => {
 
         setRepos(userRepos);
 
-        setCurrentStage(2);
+        setCurrentStage(1);
         const stargazersMap = new Map<string, GitHubStargazer[]>();
         let totalPagesToProcess = 0;
         const repoPageMap: Record<string, { start: number; end: number }> = {};
@@ -191,7 +191,7 @@ const GitHubStarTracker: React.FC = () => {
         setLoadingLog((prev) => [
           ...prev,
           {
-            name: "Stage 2",
+            name: "Stage 1",
             status: `📗 Starting deep scan of ${userRepos.length} repos (${totalPagesToProcess} estimated pages)`,
           },
         ]);
