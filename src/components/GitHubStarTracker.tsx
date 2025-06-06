@@ -66,7 +66,14 @@ const GitHubStarTracker: React.FC = () => {
       if (type === "debug") {
         console.log(`[${source}] ${message}`);
       }
-      setLoadingLog((prev) => [...prev, newEntry]);
+      setLoadingLog((prev) => {
+        const updatedLog = [...prev, newEntry];
+        // Keep only the last 50 entries to avoid performance issues
+        if (updatedLog.length > 50) {
+          return updatedLog.slice(updatedLog.length - 50);
+        }
+        return updatedLog;
+      });
     },
     []
   );
