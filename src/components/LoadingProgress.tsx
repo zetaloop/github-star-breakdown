@@ -106,11 +106,11 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           >
             <div
               className="bg-blue-500 transition-all"
-              style={{ width: `${fetchedPercentage}%` }}
+              style={{ width: `${predictedPercentage}%` }}
             />
             <div
               className="bg-green-500 transition-all"
-              style={{ width: `${predictedPercentage}%` }}
+              style={{ width: `${fetchedPercentage}%` }}
             />
           </div>
         ) : (
