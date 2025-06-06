@@ -656,7 +656,7 @@ const GitHubStarTracker: React.FC = () => {
                     log(
                       "error",
                       task.repo,
-                      `Failed fetching page ${task.page} on retry: ${err instanceof Error ? err.message : "Unknown."} Skipping ${remaining} pages.`
+                      `Failed fetching page ${task.page} on retry, skipping ${remaining} pages: ${err instanceof Error ? err.message : "Unknown."}`
                     );
                     // Don't pause again on retry failure, just continue
                   }
