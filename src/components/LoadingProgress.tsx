@@ -19,6 +19,7 @@ interface LoadingProgressProps {
   totalItems: number;
   processedItems: number;
   log: LogEntry[];
+  debugEntry?: LogEntry | null;
   currentStage: LoadingStage;
   workerStatuses: WorkerStatus[];
 }
@@ -44,6 +45,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   totalItems,
   processedItems,
   log,
+  debugEntry,
   currentStage,
   workerStatuses,
 }) => {
@@ -61,7 +63,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
         viewport.scrollTop = viewport.scrollHeight;
       });
     }
-  }, [log]);
+  }, [log, debugEntry]);
 
   let barColorClass = "";
   let barBgClass = "";
@@ -151,6 +153,22 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
               </p>
             </div>
           ))}
+          {debugEntry && (
+            <div className="flex items-start text-xs font-mono whitespace-pre-wrap break-words">
+              <div className="flex items-center w-[105px] flex-shrink-0">
+                <span className="text-gray-500 mr-2">
+                  {debugEntry.timestamp.toLocaleTimeString()}
+                </span>
+                <LogIcon type={debugEntry.type} />
+              </div>
+              <p>
+                <span className="font-semibold mr-1.5 text-gray-500">
+                  [{debugEntry.source}]
+                </span>
+                <span>{debugEntry.message}</span>
+              </p>
+            </div>
+          )}
           {log.length === 0 && (
             <p className="text-xs font-mono text-muted-foreground animate-pulse pt-1">
               Awaiting process to start...
