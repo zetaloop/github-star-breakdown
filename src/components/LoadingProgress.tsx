@@ -18,6 +18,7 @@ type LoadingStage = 0 | 1;
 interface LoadingProgressProps {
   totalItems: number;
   processedItems: number;
+  predictedItems: number;
   log: LogEntry[];
   latestEntry?: LogEntry | null;
   currentStage: LoadingStage;
@@ -44,6 +45,7 @@ const LogIcon = ({ type }: { type: LogEntry["type"] }) => {
 const LoadingProgress: React.FC<LoadingProgressProps> = ({
   totalItems,
   processedItems,
+  predictedItems,
   log,
   latestEntry,
   currentStage,
@@ -51,6 +53,10 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
 }) => {
   const progressPercentage =
     totalItems > 0 ? (processedItems / totalItems) * 100 : 0;
+  const predictedPercentage =
+    totalItems > 0 ? (predictedItems / totalItems) * 100 : 0;
+  const fetchedPercentage =
+    totalItems > 0 ? ((processedItems - predictedItems) / totalItems) * 100 : 0;
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -93,12 +99,28 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           <span>{progressText}</span>
           <span>{Math.round(progressPercentage)}%</span>
         </div>
-        <Progress
-          key={currentStage}
-          value={progressPercentage}
-          indicatorColor={barColorClass}
-          backgroundColor={barBgClass}
-        />
+        {currentStage === 1 ? (
+          <div
+            key="multi"
+            className="relative h-4 w-full overflow-hidden rounded-full bg-gray-300 dark:bg-gray-600 flex"
+          >
+            <div
+              className="bg-blue-500 transition-all"
+              style={{ width: `${fetchedPercentage}%` }}
+            />
+            <div
+              className="bg-green-500 transition-all"
+              style={{ width: `${predictedPercentage}%` }}
+            />
+          </div>
+        ) : (
+          <Progress
+            key={currentStage}
+            value={progressPercentage}
+            indicatorColor={barColorClass}
+            backgroundColor={barBgClass}
+          />
+        )}
       </div>
 
       {workerStatuses.length > 0 && (

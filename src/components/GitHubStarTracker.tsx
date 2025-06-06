@@ -62,6 +62,7 @@ const GitHubStarTracker: React.FC = () => {
   );
   const [totalItemsToProcess, setTotalItemsToProcess] = useState<number>(0);
   const [processedItemsCount, setProcessedItemsCount] = useState<number>(0);
+  const [predictedItemsCount, setPredictedItemsCount] = useState<number>(0);
   const [loadingLog, setLoadingLog] = useState<LogEntry[]>([]);
   const [latestEntry, setLatestEntry] = useState<LogEntry | null>(null);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
@@ -169,6 +170,7 @@ const GitHubStarTracker: React.FC = () => {
       setCurrentStage(0);
       setTotalItemsToProcess(0);
       setProcessedItemsCount(0);
+      setPredictedItemsCount(0);
       processedItemsRef.current = 0;
       setLoadingLog([]);
       setLatestEntry(null);
@@ -422,7 +424,10 @@ const GitHubStarTracker: React.FC = () => {
               info.status = "predicted";
             }
           }
-          if (count) setProcessedItemsCount((prev) => prev + count);
+          if (count) {
+            setProcessedItemsCount((prev) => prev + count);
+            setPredictedItemsCount((prev) => prev + count);
+          }
           checkRepoCompletion(repo);
           return count;
         };
@@ -770,6 +775,7 @@ const GitHubStarTracker: React.FC = () => {
             <LoadingProgress
               totalItems={totalItemsToProcess}
               processedItems={processedItemsCount}
+              predictedItems={predictedItemsCount}
               log={loadingLog}
               latestEntry={latestEntry}
               currentStage={currentStage}
