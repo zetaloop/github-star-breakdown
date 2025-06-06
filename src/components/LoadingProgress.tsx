@@ -71,6 +71,14 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
+  const handleCopy = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const text = window.getSelection()?.toString();
+    if (text) {
+      e.clipboardData.setData("text/plain", text.replace(/\s*\n\s*/g, " "));
+      e.preventDefault();
+    }
+  };
+
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector(
       "div[data-radix-scroll-area-viewport]"
@@ -162,12 +170,13 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       <ScrollArea
         className="h-64 w-full rounded-md border p-3 bg-muted/40"
         ref={scrollAreaRef}
+        onCopy={handleCopy}
       >
         <div className="space-y-1.5">
           {log.map((entry, index) => (
             <div
               key={index}
-              className="flex items-start text-xs font-mono break-words"
+              className="flex items-start text-xs font-mono whitespace-pre-wrap break-words"
             >
               <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
                 <span className="text-gray-500 mr-2">
@@ -185,12 +194,12 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
                 })}
               >
                 [{entry.source}]
-              </span>{" "}
+              </span>
               <span>{entry.message}</span>
             </div>
           ))}
           {latestEntry && (
-            <div className="flex items-start text-xs font-mono break-words">
+            <div className="flex items-start text-xs font-mono whitespace-pre-wrap break-words">
               <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
                 <span className="text-gray-500 mr-2">
                   {latestEntry.timestamp.toLocaleTimeString()}{" "}
@@ -206,7 +215,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
                 })}
               >
                 [{latestEntry.source}]
-              </span>{" "}
+              </span>
               <span>{latestEntry.message}</span>
             </div>
           )}
