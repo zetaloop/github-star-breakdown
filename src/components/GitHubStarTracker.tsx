@@ -417,11 +417,9 @@ const GitHubStarTracker: React.FC = () => {
           for (let p = s; p <= e; p++) {
             const info = pages[p];
             if (!info) continue;
-            if (info.status === "pending") {
+            if (info.status === "pending" || info.status === "scheduled") {
               info.status = "predicted";
               count++;
-            } else if (info.status === "scheduled") {
-              info.status = "predicted";
             }
           }
           if (count) {

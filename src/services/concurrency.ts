@@ -70,7 +70,7 @@ export class ConcurrencyPool {
           .finally(() => {
             this.activeCount--;
             this.workerPromiseMap.delete(workerIndex);
-            this.runNext();
+            Promise.resolve().then(() => this.runNext());
             if (this.activeCount === 0 && this.queue.length === 0) {
               this.allDone.forEach((cb) => cb());
             }
