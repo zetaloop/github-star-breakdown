@@ -5,7 +5,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { LogEntry } from "./GitHubStarTracker";
 import { WorkerStatus } from "@/services/concurrency";
-import { CheckCircle2, XCircle, Info, ChevronsRight, Bug } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Info,
+  ChevronsRight,
+  CircleEllipsis,
+} from "lucide-react";
 
 type LoadingStage = 0 | 1;
 
@@ -28,7 +34,7 @@ const LogIcon = ({ type }: { type: LogEntry["type"] }) => {
     case "stage":
       return <ChevronsRight className="h-3 w-3 text-gray-500" />;
     case "debug":
-      return <Bug className="h-3 w-3 text-purple-500" />;
+      return <CircleEllipsis className="h-3 w-3 text-purple-500" />;
     default:
       return null;
   }
@@ -136,7 +142,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
                     "text-blue-500": entry.type === "info",
                     "text-green-500": entry.type === "success",
                     "text-red-500": entry.type === "error",
-                    "text-purple-500": entry.type === "debug",
+                    "text-gray-500": entry.type === "debug",
                   })}
                 >
                   [{entry.source}]

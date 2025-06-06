@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import ApiKeyForm from "./ApiKeyForm";
 import UserRepoSearch from "./UserRepoSearch";
@@ -50,6 +50,7 @@ const GitHubStarTracker: React.FC = () => {
   const [loadingLog, setLoadingLog] = useState<LogEntry[]>([]);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
   const [workerStatuses, setWorkerStatuses] = useState<WorkerStatus[]>([]);
+  const processedItemsRef = useRef(0);
 
   const log = useCallback(
     (
@@ -105,6 +106,7 @@ const GitHubStarTracker: React.FC = () => {
       setCurrentStage(0);
       setTotalItemsToProcess(0);
       setProcessedItemsCount(0);
+      processedItemsRef.current = 0;
       setLoadingLog([]);
       setWorkerStatuses([]);
 
@@ -134,14 +136,15 @@ const GitHubStarTracker: React.FC = () => {
         const userRepos = await fetchUserRepos(
           usernameInput,
           (processedDelta, total) => {
-            setProcessedItemsCount((prev) => prev + processedDelta);
+            processedItemsRef.current += processedDelta;
+            setProcessedItemsCount(processedItemsRef.current);
             if (total) {
               setTotalItemsToProcess(total);
             }
             log(
               "info",
               "RepoFetcher",
-              `Fetched page ${processedItemsCount + processedDelta}/${total || "?"}`
+              `Fetched page ${processedItemsRef.current}/${total || "?"}`
             );
           }
         );
@@ -367,7 +370,7 @@ const GitHubStarTracker: React.FC = () => {
                 log(
                   "debug",
                   task.repo,
-                  `Fetched page ${task.page}. Stars: ${stars.length}, Oldest: ${oldest?.toISOString()}, Newest: ${newest?.toISOString()}`
+                  `Fetched page ${task.page}. Stars: ${stars.length}`
                 );
                 if (!stars.length) {
                   repoPages[task.page].status = "skipped";
