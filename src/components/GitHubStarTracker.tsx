@@ -37,7 +37,13 @@ export type PageInfo = {
   newest?: Date | null;
 };
 
-export type Task = { repo: string; page: number; start: number; end: number };
+export type Task = {
+  repo: string;
+  page: number;
+  start: number;
+  end: number;
+  attempt?: number;
+};
 
 const GitHubStarTracker: React.FC = () => {
   const [hasValidToken, setHasValidToken] =
@@ -212,11 +218,11 @@ const GitHubStarTracker: React.FC = () => {
             pausedRef,
             stopRef,
             controllers: controllersRef.current,
-            onRateLimit: (err) => {
+            onError: (err) => {
               pausedRef.current = true;
               setIsPaused(true);
               log("error", "RepoFetcher", err.message);
-              toast.error("Rate Limit", { description: err.message });
+              toast.error("Error", { description: err.message });
             },
             waitForResume: () =>
               new Promise<void>((resolve) => {
@@ -357,6 +363,7 @@ const GitHubStarTracker: React.FC = () => {
                 page: p,
                 start: bounds.start,
                 end: bounds.end,
+                attempt: 0,
               });
               log(
                 "debug",
@@ -444,7 +451,7 @@ const GitHubStarTracker: React.FC = () => {
           const repoPages = pagesMap.get(repo);
           if (!repoPages) return;
           if (repoPages[mid].status !== "pending") return;
-          taskQueue.push({ repo, page: mid, start: s, end: e });
+          taskQueue.push({ repo, page: mid, start: s, end: e, attempt: 0 });
           log("debug", "Scheduler", `Enqueued ${repo} page ${mid}.`);
         };
 
@@ -588,27 +595,35 @@ const GitHubStarTracker: React.FC = () => {
                   checkRepoCompletion(task.repo);
                 }
               } catch (err) {
-                if (err instanceof RateLimitError) {
-                  repoPages[task.page].status = "pending";
-                  taskQueue.unshift(task);
-                  if (!pausedRef.current) {
-                    pausedRef.current = true;
-                    setIsPaused(true);
-                    log("error", task.repo, err.message);
-                    toast.error("Rate Limit", { description: err.message });
-                    controllersRef.current.forEach((c) => c.abort());
-                  }
-                } else if (err.name === "AbortError") {
+                const errorObj = err as Error;
+                if (errorObj.name === "AbortError") {
                   repoPages[task.page].status = "pending";
                   taskQueue.unshift(task);
                 } else {
-                  repoErrors[task.repo] = err;
-                  const remaining = markRange(task.repo, task.start, task.end);
-                  log(
-                    "error",
-                    task.repo,
-                    `Failed fetching page ${task.page}: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages.`
-                  );
+                  repoPages[task.page].status = "pending";
+                  task.attempt = (task.attempt || 0) + 1;
+                  if (task.attempt < 2) {
+                    taskQueue.unshift(task);
+                  } else {
+                    repoErrors[task.repo] = err;
+                    const remaining = markRange(
+                      task.repo,
+                      task.start,
+                      task.end
+                    );
+                    log(
+                      "error",
+                      task.repo,
+                      `Failed fetching page ${task.page} on retry: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages.`
+                    );
+                  }
+                  if (!pausedRef.current) {
+                    pausedRef.current = true;
+                    setIsPaused(true);
+                    log("error", task.repo, errorObj.message);
+                    toast.error("Error", { description: errorObj.message });
+                    controllersRef.current.forEach((c) => c.abort());
+                  }
                 }
               } finally {
                 controllersRef.current.delete(key);

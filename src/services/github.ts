@@ -127,7 +127,7 @@ export interface RepoFetchControls {
   pausedRef: { current: boolean };
   stopRef: { current: boolean };
   controllers: Map<string, AbortController>;
-  onRateLimit: (err: RateLimitError) => void;
+  onError: (err: Error) => void;
   waitForResume: () => Promise<void>;
 }
 
@@ -147,6 +147,7 @@ export const fetchUserReposControlled = async (
   let totalPages: number | undefined;
   const results: Record<number, GitHubRepo[]> = {};
   const taskQueue: number[] = [];
+  const attempts: Record<number, number> = {};
 
   const fetchPage = async (
     page: number,
@@ -184,16 +185,19 @@ export const fetchUserReposControlled = async (
         results[page] = repos;
         onProgress?.(1, totalPages);
       } catch (err) {
-        if (err instanceof RateLimitError) {
-          taskQueue.unshift(page);
-          if (!controls?.pausedRef.current) {
-            controls?.onRateLimit(err);
-            controls?.controllers.forEach((c) => c.abort());
-          }
-        } else if (err.name === "AbortError") {
+        if ((err as Error).name === "AbortError") {
           taskQueue.unshift(page);
         } else {
-          throw err;
+          taskQueue.unshift(page);
+          const count = (attempts[page] = (attempts[page] || 0) + 1);
+          if (!controls?.pausedRef.current) {
+            controls?.onError(err as Error);
+            controls?.controllers.forEach((c) => c.abort());
+          }
+          if (count >= 2) {
+            console.error(`Page ${page} failed twice, skipping.`);
+            return;
+          }
         }
       } finally {
         controls?.controllers.delete(key);
@@ -231,6 +235,7 @@ export const fetchUserReposControlled = async (
       const key = "repos:1";
       const controller = new AbortController();
       controls?.controllers.set(key, controller);
+      let attempt = attempts[1] || 0;
       try {
         const resp = await fetch(
           `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=1&sort=updated`,
@@ -266,13 +271,16 @@ export const fetchUserReposControlled = async (
         onProgress?.(1, totalPages);
         break;
       } catch (err) {
-        if (err instanceof RateLimitError) {
+        if ((err as Error).name !== "AbortError") {
+          attempt++;
+          attempts[1] = attempt;
           if (!controls?.pausedRef.current) {
-            controls?.onRateLimit(err);
+            controls?.onError(err as Error);
             controls?.controllers.forEach((c) => c.abort());
           }
-        } else if (err.name !== "AbortError") {
-          throw err;
+          if (attempt >= 2) {
+            throw err;
+          }
         }
         if (controls?.stopRef.current) throw new Error("stopped");
         if (controls?.pausedRef.current) await controls.waitForResume();
@@ -288,7 +296,10 @@ export const fetchUserReposControlled = async (
     return Object.values(results).flat();
   }
 
-  for (let p = 2; p <= totalPages; p++) taskQueue.push(p);
+  for (let p = 2; p <= totalPages; p++) {
+    taskQueue.push(p);
+    attempts[p] = 0;
+  }
 
   pump();
   while (true) {
