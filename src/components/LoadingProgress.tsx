@@ -54,7 +54,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       }
       break;
     case 1:
-      barColorClass = "bg-green-500";
+      barColorClass = "bg-blue-500";
       barBgClass = "bg-gray-400";
       progressText = `Loading star history... ${processedRepos}/${totalRepos} pages`;
       logPrefixFn = (index) => `[Star Page ${index + 1}]`;
