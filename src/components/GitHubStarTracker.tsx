@@ -20,6 +20,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { ConcurrencyPool, WorkerStatus } from "@/services/concurrency";
+import { getRequestPool } from "@/services/requestPool";
 import { fetchStargazerPage } from "@/services/githubHeavy";
 
 type LoadingStage = 0 | 1 | null;
@@ -357,7 +358,7 @@ const GitHubStarTracker: React.FC = () => {
           `Fetching stargazers for ${userRepos.length} repositories...`
         );
 
-        const pool = new ConcurrencyPool(50);
+        const pool = getRequestPool();
         pool.setStatusCallback((statuses) => {
           setWorkerStatuses(statuses);
         });
