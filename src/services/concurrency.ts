@@ -10,11 +10,17 @@ export class ConcurrencyPool {
   // New properties for worker status tracking
   private workerStatus: WorkerStatus[];
   private workerPromiseMap: Map<number, Promise<void>> = new Map();
+  private statusCallback?: (statuses: WorkerStatus[]) => void;
 
   constructor(limit: number) {
     this.limit = limit;
     this.donePromise = new Promise((resolve) => this.allDone.push(resolve));
     this.workerStatus = Array(limit).fill("idle");
+  }
+
+  setStatusCallback(cb: (statuses: WorkerStatus[]) => void) {
+    this.statusCallback = cb;
+    this.statusCallback([...this.workerStatus]);
   }
 
   add(taskFunc: () => Promise<void>) {
@@ -46,14 +52,19 @@ export class ConcurrencyPool {
       if (workerIndex !== -1) {
         this.activeCount++;
         this.workerStatus[workerIndex] = "active";
+        if (this.statusCallback) this.statusCallback([...this.workerStatus]);
 
         const taskPromise = taskFunc()
           .then(() => {
             this.workerStatus[workerIndex] = "idle";
+            if (this.statusCallback)
+              this.statusCallback([...this.workerStatus]);
           })
           .catch((err) => {
             console.error(`Task in worker ${workerIndex} failed:`, err);
             this.workerStatus[workerIndex] = "error";
+            if (this.statusCallback)
+              this.statusCallback([...this.workerStatus]);
             // We still need to continue processing other tasks
           })
           .finally(() => {

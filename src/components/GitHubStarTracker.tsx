@@ -79,6 +79,7 @@ const GitHubStarTracker: React.FC = () => {
     setStarHistory([]);
     setYearlyIncrements(new Map());
     setError(null);
+    setWorkerStatuses([]);
   };
 
   const handleSearch = useCallback(
@@ -201,9 +202,9 @@ const GitHubStarTracker: React.FC = () => {
         );
 
         const pool = new ConcurrencyPool(50);
-        const statusInterval = setInterval(() => {
-          setWorkerStatuses(pool.getWorkerStatuses());
-        }, 200);
+        pool.setStatusCallback((statuses) => {
+          setWorkerStatuses(statuses);
+        });
 
         type PageInfo = {
           status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
@@ -470,8 +471,6 @@ const GitHubStarTracker: React.FC = () => {
 
         pump();
         await pool.awaitAll();
-        clearInterval(statusInterval);
-        setWorkerStatuses(pool.getWorkerStatuses()); // Final update
 
         log("stage", "App", "Processing final data.");
         for (const repo of userRepos) {
@@ -548,6 +547,7 @@ const GitHubStarTracker: React.FC = () => {
       } finally {
         setIsLoading(false);
         setCurrentStage(null);
+        setWorkerStatuses([]);
         log("stage", "App", "✅ Analysis complete.");
       }
     },
