@@ -11,7 +11,7 @@ import {
   RepoStarHistoryItem,
 } from "@/types/github";
 import {
-  fetchUserRepos,
+  fetchUserReposControlled,
   processRepoStarHistory,
   getGitHubToken,
   clearGitHubToken,
@@ -31,10 +31,19 @@ export type LogEntry = {
   timestamp: Date;
 };
 
+export type PageInfo = {
+  status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
+  oldest?: Date | null;
+  newest?: Date | null;
+};
+
+export type Task = { repo: string; page: number; start: number; end: number };
+
 const GitHubStarTracker: React.FC = () => {
   const [hasValidToken, setHasValidToken] =
     useState<boolean>(!!getGitHubToken());
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
   const [username, setUsername] = useState<string>("");
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [starHistory, setStarHistory] = useState<RepoStarHistoryItem[]>([]);
@@ -51,6 +60,12 @@ const GitHubStarTracker: React.FC = () => {
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
   const [workerStatuses, setWorkerStatuses] = useState<WorkerStatus[]>([]);
   const processedItemsRef = useRef(0);
+  const pumpRef = useRef<() => void>(() => {});
+  const taskQueueRef = useRef<Task[]>([]);
+  const pausedRef = useRef(false);
+  const stopRef = useRef(false);
+  const controllersRef = useRef<Map<string, AbortController>>(new Map());
+  const resumeResolveRef = useRef<() => void>(() => {});
 
   const log = useCallback(
     (
@@ -90,6 +105,33 @@ const GitHubStarTracker: React.FC = () => {
     setWorkerStatuses([]);
   };
 
+  const handlePauseToggle = () => {
+    setIsPaused((prev) => {
+      const next = !prev;
+      pausedRef.current = next;
+      log("info", "App", next ? "⏸ Paused" : "▶️ Resumed");
+      if (next) {
+        controllersRef.current.forEach((c) => c.abort());
+      } else {
+        resumeResolveRef.current();
+        pumpRef.current();
+      }
+      return next;
+    });
+  };
+
+  const handleStop = () => {
+    stopRef.current = true;
+    pausedRef.current = false;
+    setIsPaused(false);
+    setIsLoading(false);
+    controllersRef.current.forEach((c) => c.abort());
+    controllersRef.current.clear();
+    taskQueueRef.current = [];
+    resumeResolveRef.current();
+    log("stage", "App", "⛔ Analysis stopped.");
+  };
+
   const handleSearch = useCallback(
     async (
       usernameInput: string,
@@ -97,6 +139,12 @@ const GitHubStarTracker: React.FC = () => {
       customRange?: { from?: Date; to?: Date }
     ) => {
       setIsLoading(true);
+      stopRef.current = false;
+      pausedRef.current = false;
+      setIsPaused(false);
+      taskQueueRef.current = [];
+      controllersRef.current.clear();
+      resumeResolveRef.current = () => {};
       setError(null);
       setUsername(usernameInput);
       setCurrentTimeRange(timeRangeInput);
@@ -133,7 +181,7 @@ const GitHubStarTracker: React.FC = () => {
         }
 
         log("stage", "RepoFetcher", "Fetching repository list...");
-        const userRepos = await fetchUserRepos(
+        const userRepos = await fetchUserReposControlled(
           usernameInput,
           (processedDelta, total) => {
             processedItemsRef.current += processedDelta;
@@ -149,6 +197,21 @@ const GitHubStarTracker: React.FC = () => {
           },
           (statuses) => {
             setWorkerStatuses(statuses);
+          },
+          {
+            pausedRef,
+            stopRef,
+            controllers: controllersRef.current,
+            onRateLimit: (err) => {
+              pausedRef.current = true;
+              setIsPaused(true);
+              log("error", "RepoFetcher", err.message);
+              toast.error("Rate Limit", { description: err.message });
+            },
+            waitForResume: () =>
+              new Promise<void>((resolve) => {
+                resumeResolveRef.current = resolve;
+              }),
           }
         );
         setWorkerStatuses([]);
@@ -220,15 +283,8 @@ const GitHubStarTracker: React.FC = () => {
           setWorkerStatuses(statuses);
         });
 
-        type PageInfo = {
-          status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
-          oldest?: Date | null;
-          newest?: Date | null;
-        };
-
-        type Task = { repo: string; page: number; start: number; end: number };
         const pagesMap = new Map<string, Record<number, PageInfo>>();
-        const taskQueue: Task[] = [];
+        const taskQueue = taskQueueRef.current;
         const repoErrors: Record<string, unknown> = {};
         userRepos.forEach((repo) => {
           const pageInfo = repoPageMap[repo.full_name];
@@ -343,7 +399,10 @@ const GitHubStarTracker: React.FC = () => {
         };
 
         const pump = () => {
+          if (pausedRef.current || stopRef.current) return;
           while (
+            !pausedRef.current &&
+            !stopRef.current &&
             taskQueue.length > 0 &&
             pool.getActiveCount() + pool.getQueueLength() < pool.getLimit()
           ) {
@@ -357,18 +416,23 @@ const GitHubStarTracker: React.FC = () => {
               `Starting task for ${task.repo} page ${task.page}`
             );
             pool.add(async () => {
+              const key = `${task.repo}:${task.page}`;
+              const controller = new AbortController();
+              controllersRef.current.set(key, controller);
               if (repoPages[task.page].status !== "scheduled") {
                 log(
                   "debug",
                   "Pool",
                   `Skipped ${task.repo} page ${task.page}, status is now ${repoPages[task.page].status}`
                 );
+                controllersRef.current.delete(key);
                 return;
               }
               try {
                 const { stars, oldest, newest } = await fetchStargazerPage(
                   task.repo,
-                  task.page
+                  task.page,
+                  controller.signal
                 );
                 setProcessedItemsCount((prev) => prev + 1);
                 log(
@@ -470,21 +534,61 @@ const GitHubStarTracker: React.FC = () => {
                   enqueueRange(task.repo, task.page + 1, task.end);
                 }
               } catch (err) {
-                repoErrors[task.repo] = err;
-                const remaining = markRange(task.repo, task.start, task.end);
-                log(
-                  "error",
-                  task.repo,
-                  `Failed fetching page ${task.page}: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages.`
-                );
+                if (err instanceof RateLimitError) {
+                  repoPages[task.page].status = "pending";
+                  taskQueue.unshift(task);
+                  if (!pausedRef.current) {
+                    pausedRef.current = true;
+                    setIsPaused(true);
+                    log("error", task.repo, err.message);
+                    toast.error("Rate Limit", { description: err.message });
+                    controllersRef.current.forEach((c) => c.abort());
+                  }
+                } else if (err.name === "AbortError") {
+                  repoPages[task.page].status = "pending";
+                  taskQueue.unshift(task);
+                } else {
+                  repoErrors[task.repo] = err;
+                  const remaining = markRange(task.repo, task.start, task.end);
+                  log(
+                    "error",
+                    task.repo,
+                    `Failed fetching page ${task.page}: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages.`
+                  );
+                }
+              } finally {
+                controllersRef.current.delete(key);
               }
-              pump();
+              pumpRef.current();
             });
           }
         };
 
-        pump();
-        await pool.awaitAll();
+        pumpRef.current = pump;
+        pumpRef.current();
+        while (true) {
+          await pool.awaitAll();
+          if (stopRef.current) {
+            log("stage", "App", "Process aborted by user.");
+            return;
+          }
+          if (pausedRef.current) {
+            await new Promise<void>((resolve) => {
+              resumeResolveRef.current = resolve;
+            });
+            if (stopRef.current) {
+              log("stage", "App", "Process aborted by user.");
+              return;
+            }
+          }
+          if (
+            taskQueue.length === 0 &&
+            controllersRef.current.size === 0 &&
+            pool.getActiveCount() === 0
+          )
+            break;
+          pumpRef.current();
+        }
 
         log("stage", "App", "Processing final data.");
         for (const repo of userRepos) {
@@ -577,6 +681,9 @@ const GitHubStarTracker: React.FC = () => {
           <UserRepoSearch
             onSearch={handleSearch}
             isLoading={isLoading}
+            isPaused={isPaused}
+            onPauseToggle={handlePauseToggle}
+            onStop={handleStop}
             onResetToken={handleResetToken}
           />
 
