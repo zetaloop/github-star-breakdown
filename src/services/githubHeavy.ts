@@ -2,12 +2,10 @@ import { GitHubStargazer } from "@/types/github";
 import { fetchStargazersREST, fetchStargazersGraphQL } from "./githubApi";
 import { RateLimitError } from "./github";
 
-type ApiMode = "rest" | "graphql";
-let currentApiMode: ApiMode = "rest";
-export const getApiMode = (): ApiMode => currentApiMode;
-export const setApiMode = (mode: ApiMode) => {
-  currentApiMode = mode;
-};
+let restReset: number | null = null;
+let graphqlReset: number | null = null;
+const canUseRest = () => !restReset || Date.now() >= restReset * 1000;
+const canUseGraphQL = () => !graphqlReset || Date.now() >= graphqlReset * 1000;
 const cursorCache: Map<string, Map<number, string | null>> = new Map();
 const pageCache: Map<
   string,
@@ -22,8 +20,8 @@ export const fetchStargazerPage = async (
   page: number,
   signal?: AbortSignal
 ) => {
-  const useGraphQL = getApiMode() === "graphql" || page > 400;
-  if (!useGraphQL) {
+  const preferGraphQL = page > 400 || !canUseRest();
+  if (!preferGraphQL && canUseRest()) {
     try {
       const { stars, oldest, newest } = await fetchStargazersREST(
         repoFullName,
@@ -33,8 +31,10 @@ export const fetchStargazerPage = async (
       return { stars, oldest, newest };
     } catch (err) {
       if (err instanceof RateLimitError) {
-        setApiMode("graphql");
-        return fetchStargazerPage(repoFullName, page, signal);
+        restReset = err.resetTimestamp || null;
+        if (canUseGraphQL()) {
+          return fetchStargazerPage(repoFullName, page, signal);
+        }
       }
       throw err;
     }
@@ -60,10 +60,24 @@ export const fetchStargazerPage = async (
   }
   let after = last > 0 ? cCache.get(last) || undefined : undefined;
   for (let p = last + 1; p <= page; p++) {
-    const res = await fetchStargazersGraphQL(repoFullName, after, signal);
-    pCache.set(p, { stars: res.stars, oldest: res.oldest, newest: res.newest });
-    cCache.set(p, res.endCursor);
-    after = res.endCursor || undefined;
+    try {
+      const res = await fetchStargazersGraphQL(repoFullName, after, signal);
+      pCache.set(p, {
+        stars: res.stars,
+        oldest: res.oldest,
+        newest: res.newest,
+      });
+      cCache.set(p, res.endCursor);
+      after = res.endCursor || undefined;
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        graphqlReset = err.resetTimestamp || null;
+        if (canUseRest() && p <= 400) {
+          return fetchStargazerPage(repoFullName, p, signal);
+        }
+      }
+      throw err;
+    }
   }
   return pCache.get(page)!;
 };
