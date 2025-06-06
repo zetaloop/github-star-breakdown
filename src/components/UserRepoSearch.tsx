@@ -12,7 +12,14 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Search, Star, Calendar as CalendarIcon } from "lucide-react";
+import {
+  Search,
+  Star,
+  Calendar as CalendarIcon,
+  Pause,
+  Play,
+  Square,
+} from "lucide-react";
 import { toast } from "sonner";
 import TokenInfoButton from "./TokenInfoButton";
 
@@ -25,12 +32,18 @@ interface UserRepoSearchProps {
     customRange?: DateRange
   ) => void;
   isLoading: boolean;
+  isPaused?: boolean;
+  onPauseToggle?: () => void;
+  onStop?: () => void;
   onResetToken?: () => void;
 }
 
 const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
   onSearch,
   isLoading,
+  isPaused,
+  onPauseToggle,
+  onStop,
   onResetToken,
 }) => {
   const [username, setUsername] = useState<string>("");
@@ -88,6 +101,30 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
             <Star className="mr-2 h-4 w-4" />
             {isLoading ? "Loading..." : "Analyze Stars"}
           </Button>
+          {isLoading && (
+            <>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={onPauseToggle}
+              >
+                {isPaused ? (
+                  <Play className="h-4 w-4" />
+                ) : (
+                  <Pause className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="destructive"
+                onClick={onStop}
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="mt-2 flex items-center justify-between gap-4">

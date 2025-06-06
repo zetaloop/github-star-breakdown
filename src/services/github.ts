@@ -123,6 +123,197 @@ export const fetchUserRepos = async (
   return allRepos;
 };
 
+export interface RepoFetchControls {
+  pausedRef: { current: boolean };
+  stopRef: { current: boolean };
+  controllers: Map<string, AbortController>;
+  onRateLimit: (err: RateLimitError) => void;
+  waitForResume: () => Promise<void>;
+}
+
+export const fetchUserReposControlled = async (
+  username: string,
+  onProgress?: (processedDelta: number, totalPages?: number) => void,
+  onStatusChange?: (statuses: WorkerStatus[]) => void,
+  controls?: RepoFetchControls
+): Promise<GitHubRepo[]> => {
+  const token = getGitHubToken();
+  const headers = token ? { Authorization: `token ${token}` } : {};
+  const perPage = 100;
+  const concurrencyLimit = 50;
+  const pool = new ConcurrencyPool(concurrencyLimit);
+  if (onStatusChange) pool.setStatusCallback(onStatusChange);
+
+  let totalPages: number | undefined;
+  const results: Record<number, GitHubRepo[]> = {};
+  const taskQueue: number[] = [];
+
+  const fetchPage = async (
+    page: number,
+    signal: AbortSignal
+  ): Promise<GitHubRepo[]> => {
+    const resp = await fetch(
+      `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
+      { headers, signal }
+    );
+    if (!resp.ok) {
+      if (resp.status === 403) {
+        const reset = resp.headers.get("X-RateLimit-Reset");
+        const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+        let message = `GitHub API rate limit exceeded while fetching page ${page}.`;
+        if (resetTimestamp) {
+          message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+        }
+        throw new RateLimitError(message, resetTimestamp);
+      }
+      throw new Error(
+        `GitHub API Error: ${resp.status} - ${resp.statusText} while fetching page ${page}`
+      );
+    }
+    const repos: GitHubRepo[] = await resp.json();
+    return repos.filter((repo) => repo.stargazers_count > 0);
+  };
+
+  const processTask = (page: number) => {
+    pool.add(async () => {
+      const key = `repos:${page}`;
+      const controller = new AbortController();
+      controls?.controllers.set(key, controller);
+      try {
+        const repos = await fetchPage(page, controller.signal);
+        results[page] = repos;
+        onProgress?.(1, totalPages);
+      } catch (err) {
+        if (err instanceof RateLimitError) {
+          taskQueue.unshift(page);
+          if (!controls?.pausedRef.current) {
+            controls?.onRateLimit(err);
+            controls?.controllers.forEach((c) => c.abort());
+          }
+        } else if (err.name === "AbortError") {
+          taskQueue.unshift(page);
+        } else {
+          throw err;
+        }
+      } finally {
+        controls?.controllers.delete(key);
+      }
+      pump();
+    });
+  };
+
+  const pump = () => {
+    if (!controls) {
+      while (
+        taskQueue.length > 0 &&
+        pool.getActiveCount() + pool.getQueueLength() < pool.getLimit()
+      ) {
+        const page = taskQueue.shift()!;
+        processTask(page);
+      }
+      return;
+    }
+    if (controls.pausedRef.current || controls.stopRef.current) return;
+    while (
+      !controls.pausedRef.current &&
+      !controls.stopRef.current &&
+      taskQueue.length > 0 &&
+      pool.getActiveCount() + pool.getQueueLength() < pool.getLimit()
+    ) {
+      const page = taskQueue.shift()!;
+      processTask(page);
+    }
+  };
+
+  const fetchFirstPage = async () => {
+    while (true) {
+      if (controls?.stopRef.current) throw new Error("stopped");
+      const key = "repos:1";
+      const controller = new AbortController();
+      controls?.controllers.set(key, controller);
+      try {
+        const resp = await fetch(
+          `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=1&sort=updated`,
+          { headers, signal: controller.signal }
+        );
+        if (!resp.ok) {
+          if (resp.status === 403) {
+            const reset = resp.headers.get("X-RateLimit-Reset");
+            const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+            let message = "GitHub API rate limit exceeded.";
+            if (resetTimestamp) {
+              message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+            }
+            throw new RateLimitError(message, resetTimestamp);
+          }
+          throw new Error(
+            `GitHub API Error: ${resp.status} - ${resp.statusText}`
+          );
+        }
+        const linkHeader = resp.headers.get("Link");
+        if (linkHeader) {
+          const links = linkHeader.split(",");
+          const lastPageLink = links.find((l) => l.includes('rel="last"'));
+          if (lastPageLink) {
+            const match = lastPageLink.match(/[?&]page=(\d+)/);
+            if (match) {
+              totalPages = parseInt(match[1], 10);
+            }
+          }
+        }
+        const data: GitHubRepo[] = await resp.json();
+        results[1] = data.filter((repo) => repo.stargazers_count > 0);
+        onProgress?.(1, totalPages);
+        break;
+      } catch (err) {
+        if (err instanceof RateLimitError) {
+          if (!controls?.pausedRef.current) {
+            controls?.onRateLimit(err);
+            controls?.controllers.forEach((c) => c.abort());
+          }
+        } else if (err.name !== "AbortError") {
+          throw err;
+        }
+        if (controls?.stopRef.current) throw new Error("stopped");
+        if (controls?.pausedRef.current) await controls.waitForResume();
+      } finally {
+        controls?.controllers.delete(key);
+      }
+    }
+  };
+
+  await fetchFirstPage();
+
+  if (!totalPages || totalPages === 1) {
+    return Object.values(results).flat();
+  }
+
+  for (let p = 2; p <= totalPages; p++) taskQueue.push(p);
+
+  pump();
+  while (true) {
+    await pool.awaitAll();
+    if (controls?.stopRef.current) throw new Error("stopped");
+    if (controls?.pausedRef.current) await controls.waitForResume();
+    if (
+      taskQueue.length === 0 &&
+      pool.getActiveCount() === 0 &&
+      (controls?.controllers.size ?? 0) === 0
+    )
+      break;
+    pump();
+  }
+
+  const pages = Object.keys(results)
+    .map((n) => parseInt(n, 10))
+    .sort((a, b) => a - b);
+  const allRepos: GitHubRepo[] = [];
+  for (const p of pages) {
+    allRepos.push(...results[p]);
+  }
+  return allRepos;
+};
+
 // Parallel binary search and fetch for stargazers in a given date range, with concurrency pool and skip logic
 
 // Process repositories and stargazers into time series data for charting

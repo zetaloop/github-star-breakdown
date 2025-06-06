@@ -3,7 +3,8 @@ import { getGitHubToken, RateLimitError } from "./github";
 import { ConcurrencyPool } from "./concurrency";
 export const fetchStargazerPage = async (
   repoFullName: string,
-  page: number
+  page: number,
+  signal?: AbortSignal
 ) => {
   const token = getGitHubToken();
   if (!token) throw new Error("GitHub token is required");
@@ -13,7 +14,7 @@ export const fetchStargazerPage = async (
   };
 
   const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=${page}`;
-  const resp = await fetch(url, { headers });
+  const resp = await fetch(url, { headers, signal });
   if (!resp.ok) {
     if (resp.status === 403) {
       const reset = resp.headers.get("X-RateLimit-Reset");
