@@ -4,6 +4,7 @@ import {
   RepoStarHistoryItem,
 } from "@/types/github";
 import { ConcurrencyPool, WorkerStatus } from "./concurrency";
+import { fetchReposREST } from "./githubApi";
 
 export class RateLimitError extends Error {
   public resetTimestamp?: number;
@@ -33,8 +34,6 @@ export const fetchUserRepos = async (
   onProgress?: (processedDelta: number, totalPages?: number) => void,
   onStatusChange?: (statuses: WorkerStatus[]) => void
 ): Promise<GitHubRepo[]> => {
-  const token = getGitHubToken();
-  const headers = token ? { Authorization: `token ${token}` } : {};
   const perPage = 100;
   const concurrencyLimit = 50;
   const pool = new ConcurrencyPool(concurrencyLimit);
@@ -44,25 +43,11 @@ export const fetchUserRepos = async (
   let processedPages = 0;
 
   // Fetch the first page synchronously to get total pages
-  const firstResp = await fetch(
-    `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=1&sort=updated`,
-    { headers }
+  const { repos: firstPageRepos, linkHeader } = await fetchReposREST(
+    username,
+    1,
+    perPage
   );
-  if (!firstResp.ok) {
-    if (firstResp.status === 403) {
-      const reset = firstResp.headers.get("X-RateLimit-Reset");
-      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-      let message = "GitHub API rate limit exceeded.";
-      if (resetTimestamp) {
-        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-      }
-      throw new RateLimitError(message, resetTimestamp);
-    }
-    throw new Error(
-      `GitHub API Error: ${firstResp.status} - ${firstResp.statusText}`
-    );
-  }
-  const linkHeader = firstResp.headers.get("Link");
   if (linkHeader) {
     const links = linkHeader.split(",");
     const lastPageLink = links.find((link) => link.includes('rel="last"'));
@@ -73,7 +58,6 @@ export const fetchUserRepos = async (
       }
     }
   }
-  const firstPageRepos: GitHubRepo[] = await firstResp.json();
   const filteredFirst = firstPageRepos.filter(
     (repo) => repo.stargazers_count > 0
   );
@@ -90,25 +74,7 @@ export const fetchUserRepos = async (
   const results: GitHubRepo[][] = Array(totalPages - 1);
   for (let page = 2; page <= totalPages; page++) {
     pool.add(async () => {
-      const resp = await fetch(
-        `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
-        { headers }
-      );
-      if (!resp.ok) {
-        if (resp.status === 403) {
-          const reset = resp.headers.get("X-RateLimit-Reset");
-          const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-          let message = `GitHub API rate limit exceeded while fetching page ${page}.`;
-          if (resetTimestamp) {
-            message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-          }
-          throw new RateLimitError(message, resetTimestamp);
-        }
-        throw new Error(
-          `GitHub API Error: ${resp.status} - ${resp.statusText} while fetching page ${page}`
-        );
-      }
-      const repos: GitHubRepo[] = await resp.json();
+      const { repos } = await fetchReposREST(username, page, perPage);
       const filtered = repos.filter((repo) => repo.stargazers_count > 0);
       results[page - 2] = filtered;
       if (onProgress) onProgress(1, totalPages);
@@ -137,8 +103,6 @@ export const fetchUserReposControlled = async (
   onStatusChange?: (statuses: WorkerStatus[]) => void,
   controls?: RepoFetchControls
 ): Promise<GitHubRepo[]> => {
-  const token = getGitHubToken();
-  const headers = token ? { Authorization: `token ${token}` } : {};
   const perPage = 100;
   const concurrencyLimit = 50;
   const pool = new ConcurrencyPool(concurrencyLimit);
@@ -153,25 +117,7 @@ export const fetchUserReposControlled = async (
     page: number,
     signal: AbortSignal
   ): Promise<GitHubRepo[]> => {
-    const resp = await fetch(
-      `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
-      { headers, signal }
-    );
-    if (!resp.ok) {
-      if (resp.status === 403) {
-        const reset = resp.headers.get("X-RateLimit-Reset");
-        const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-        let message = `GitHub API rate limit exceeded while fetching page ${page}.`;
-        if (resetTimestamp) {
-          message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-        }
-        throw new RateLimitError(message, resetTimestamp);
-      }
-      throw new Error(
-        `GitHub API Error: ${resp.status} - ${resp.statusText} while fetching page ${page}`
-      );
-    }
-    const repos: GitHubRepo[] = await resp.json();
+    const { repos } = await fetchReposREST(username, page, perPage, signal);
     return repos.filter((repo) => repo.stargazers_count > 0);
   };
 
@@ -237,25 +183,12 @@ export const fetchUserReposControlled = async (
       controls?.controllers.set(key, controller);
       let attempt = attempts[1] || 0;
       try {
-        const resp = await fetch(
-          `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=1&sort=updated`,
-          { headers, signal: controller.signal }
+        const { repos, linkHeader } = await fetchReposREST(
+          username,
+          1,
+          perPage,
+          controller.signal
         );
-        if (!resp.ok) {
-          if (resp.status === 403) {
-            const reset = resp.headers.get("X-RateLimit-Reset");
-            const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-            let message = "GitHub API rate limit exceeded.";
-            if (resetTimestamp) {
-              message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-            }
-            throw new RateLimitError(message, resetTimestamp);
-          }
-          throw new Error(
-            `GitHub API Error: ${resp.status} - ${resp.statusText}`
-          );
-        }
-        const linkHeader = resp.headers.get("Link");
         if (linkHeader) {
           const links = linkHeader.split(",");
           const lastPageLink = links.find((l) => l.includes('rel="last"'));
@@ -266,8 +199,7 @@ export const fetchUserReposControlled = async (
             }
           }
         }
-        const data: GitHubRepo[] = await resp.json();
-        results[1] = data.filter((repo) => repo.stargazers_count > 0);
+        results[1] = repos.filter((repo) => repo.stargazers_count > 0);
         onProgress?.(1, totalPages);
         break;
       } catch (err) {
