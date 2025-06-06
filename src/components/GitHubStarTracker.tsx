@@ -44,6 +44,22 @@ const GitHubStarTracker: React.FC = () => {
     Array<{ name: string; status: string }>
   >([]);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+
+  const logDebug = useCallback((message: string) => {
+    console.log(`[StarTrackerDebug] ${message}`);
+    setDebugLog((prev) => [...prev, message]);
+    setLoadingLog((prev) => {
+      // Avoid duplicating the final "Full data loaded" message
+      if (
+        prev.length > 0 &&
+        prev[prev.length - 1].status.includes("Full data loaded")
+      ) {
+        return prev;
+      }
+      return [...prev, { name: "Debug", status: message }];
+    });
+  }, []);
 
   const handleResetToken = () => {
     clearGitHubToken();
@@ -74,6 +90,7 @@ const GitHubStarTracker: React.FC = () => {
       setLoadingLog([
         { name: "Stage 0", status: "🔍 Fetching repository list..." },
       ]);
+      setDebugLog([]);
 
       try {
         const now = new Date();
@@ -240,6 +257,9 @@ const GitHubStarTracker: React.FC = () => {
                 start: bounds.start,
                 end: bounds.end,
               });
+              logDebug(
+                `[InitQueue] Enqueued ${name} page ${p} (initial quantile)`
+              );
             }
           }
         }
@@ -298,6 +318,7 @@ const GitHubStarTracker: React.FC = () => {
           if (!repoPages) return;
           if (repoPages[mid].status !== "pending") return;
           taskQueue.push({ repo, page: mid, start: s, end: e });
+          logDebug(`[Enqueue] Added ${repo} page ${mid} to queue.`);
         };
 
         const pump = () => {
@@ -309,23 +330,44 @@ const GitHubStarTracker: React.FC = () => {
             const repoPages = pagesMap.get(task.repo)!;
             if (repoPages[task.page].status !== "pending") continue;
             repoPages[task.page].status = "scheduled";
+            logDebug(`[Pump] Starting task for ${task.repo} page ${task.page}`);
             pool.add(async () => {
-              if (repoPages[task.page].status !== "scheduled") return;
+              if (repoPages[task.page].status !== "scheduled") {
+                logDebug(
+                  `[Pump] Skipped task for ${task.repo} page ${task.page} because status changed to ${repoPages[task.page].status}`
+                );
+                return;
+              }
               try {
                 const { stars, oldest, newest } = await fetchStargazerPage(
                   task.repo,
                   task.page
                 );
                 setProcessedItemsCount((prev) => prev + 1);
+                logDebug(
+                  `[FetchOK] Fetched ${task.repo} page ${task.page}. Stars: ${stars.length}, Oldest: ${oldest?.toISOString()}, Newest: ${newest?.toISOString()}`
+                );
                 if (!stars.length) {
                   repoPages[task.page].status = "skipped";
+                  logDebug(`[Skip] ${task.repo} page ${task.page} is empty.`);
                 } else if (
                   untilDateForRange &&
                   oldest &&
                   oldest > untilDateForRange
                 ) {
                   repoPages[task.page].status = "skipped";
-                  markRange(task.repo, task.page + 1, task.end);
+                  logDebug(
+                    `[Skip] ${task.repo} page ${task.page} is out of range (too new).`
+                  );
+                  const predictedCount = markRange(
+                    task.repo,
+                    task.page + 1,
+                    task.end
+                  );
+                  if (predictedCount > 0)
+                    logDebug(
+                      `[Predict] Marked ${predictedCount} pages after ${task.page} as predicted for ${task.repo}.`
+                    );
                   enqueueRange(task.repo, task.start, task.page - 1);
                 } else if (
                   sinceDateForRange &&
@@ -333,7 +375,18 @@ const GitHubStarTracker: React.FC = () => {
                   newest < sinceDateForRange
                 ) {
                   repoPages[task.page].status = "skipped";
-                  markRange(task.repo, task.start, task.page - 1);
+                  logDebug(
+                    `[Skip] ${task.repo} page ${task.page} is out of range (too old).`
+                  );
+                  const predictedCount = markRange(
+                    task.repo,
+                    task.start,
+                    task.page - 1
+                  );
+                  if (predictedCount > 0)
+                    logDebug(
+                      `[Predict] Marked ${predictedCount} pages before ${task.page} as predicted for ${task.repo}.`
+                    );
                   enqueueRange(task.repo, task.page + 1, task.end);
                 } else {
                   repoPages[task.page] = { status: "fetched", oldest, newest };
@@ -347,21 +400,40 @@ const GitHubStarTracker: React.FC = () => {
                     prev !== null &&
                     sameDay(repoPages[prev].newest, oldest)
                   ) {
-                    markRange(task.repo, prev + 1, task.page - 1);
+                    const predictedCount = markRange(
+                      task.repo,
+                      prev + 1,
+                      task.page - 1
+                    );
+                    if (predictedCount > 0)
+                      logDebug(
+                        `[Predict] Marked ${predictedCount} pages between ${prev} and ${task.page} as predicted for ${task.repo} (same day).`
+                      );
                   }
                   const next = findNextFetched(task.repo, task.page, task.end);
                   if (
                     next !== null &&
                     sameDay(newest, repoPages[next].oldest)
                   ) {
-                    markRange(task.repo, task.page + 1, next - 1);
+                    const predictedCount = markRange(
+                      task.repo,
+                      task.page + 1,
+                      next - 1
+                    );
+                    if (predictedCount > 0)
+                      logDebug(
+                        `[Predict] Marked ${predictedCount} pages between ${task.page} and ${next} as predicted for ${task.repo} (same day).`
+                      );
                   }
                   enqueueRange(task.repo, task.start, task.page - 1);
                   enqueueRange(task.repo, task.page + 1, task.end);
                 }
               } catch (err) {
                 repoErrors[task.repo] = err;
-                markRange(task.repo, task.start, task.end);
+                const remaining = markRange(task.repo, task.start, task.end);
+                logDebug(
+                  `[Error] Failed fetching ${task.repo} page ${task.page}: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages for this repo.`
+                );
               }
               pump();
             });
@@ -451,7 +523,7 @@ const GitHubStarTracker: React.FC = () => {
         setCurrentStage(null);
       }
     },
-    []
+    [logDebug]
   );
 
   return (
