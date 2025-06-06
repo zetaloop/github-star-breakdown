@@ -185,6 +185,8 @@ const GitHubStarTracker: React.FC = () => {
         if (skipped > 0) parts.push(`${skipped} skipped`);
         if (predicted > 0) parts.push(`${predicted} predicted`);
         if (unrecorded > 0) parts.push(`${unrecorded} unrecorded`);
+        // `unrecorded` indicates pages that were not processed at all.
+        // If this count is greater than zero, it suggests a potential issue with the code that needs immediate attention.
 
         const starsText =
           fetchedStars === totalStarsInRepo
