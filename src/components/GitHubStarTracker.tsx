@@ -682,6 +682,30 @@ const GitHubStarTracker: React.FC = () => {
           pumpRef.current();
         }
 
+        // Mark any leftover pages as predicted and log their final state
+        for (const [repoName, pages] of pagesMap.entries()) {
+          const sortedPages = Object.keys(pages)
+            .map((p) => parseInt(p, 10))
+            .sort((a, b) => a - b);
+          const statusStrings: string[] = [];
+          let newlyPredicted = 0;
+          for (const p of sortedPages) {
+            const info = pages[p];
+            if (info.status === "pending" || info.status === "scheduled") {
+              info.status = "predicted";
+              newlyPredicted++;
+            }
+            statusStrings.push(`${p}:${info.status}`);
+          }
+          if (newlyPredicted > 0) {
+            setProcessedItemsCount((prev) => prev + newlyPredicted);
+            setPredictedItemsCount((prev) => prev + newlyPredicted);
+          }
+          console.log(
+            `[Final] ${repoName} page statuses: ${statusStrings.join(", ")}`
+          );
+        }
+
         log("stage", "App", "Processing final data.");
         for (const repo of userRepos) {
           const stars = starsMap.get(repo.full_name) || [];

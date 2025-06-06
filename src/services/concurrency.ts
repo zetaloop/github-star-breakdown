@@ -70,9 +70,8 @@ export class ConcurrencyPool {
           .finally(() => {
             this.activeCount--;
             this.workerPromiseMap.delete(workerIndex);
-            // Slight delay so error state remains visible before assigning
-            // the next task
-            setTimeout(() => this.runNext(), 50);
+            // Continue immediately with the next task
+            this.runNext();
             if (this.activeCount === 0 && this.queue.length === 0) {
               this.allDone.forEach((cb) => cb());
             }
