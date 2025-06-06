@@ -3,7 +3,7 @@ import {
   GitHubStargazer,
   RepoStarHistoryItem,
 } from "@/types/github";
-import { ConcurrencyPool } from "./concurrency";
+import { ConcurrencyPool, WorkerStatus } from "./concurrency";
 
 export class RateLimitError extends Error {
   public resetTimestamp?: number;
@@ -30,13 +30,15 @@ export const clearGitHubToken = (): void => {
 
 export const fetchUserRepos = async (
   username: string,
-  onProgress?: (processedDelta: number, totalPages?: number) => void
+  onProgress?: (processedDelta: number, totalPages?: number) => void,
+  onStatusChange?: (statuses: WorkerStatus[]) => void
 ): Promise<GitHubRepo[]> => {
   const token = getGitHubToken();
   const headers = token ? { Authorization: `token ${token}` } : {};
   const perPage = 100;
   const concurrencyLimit = 50;
   const pool = new ConcurrencyPool(concurrencyLimit);
+  if (onStatusChange) pool.setStatusCallback(onStatusChange);
   let allRepos: GitHubRepo[] = [];
   let totalPages: number | undefined = undefined;
   let processedPages = 0;
@@ -113,6 +115,7 @@ export const fetchUserRepos = async (
     });
   }
   await pool.awaitAll();
+  if (onStatusChange) onStatusChange(pool.getWorkerStatuses());
   // Flatten and merge all results
   for (const arr of results) {
     if (arr) allRepos.push(...arr);

@@ -146,8 +146,12 @@ const GitHubStarTracker: React.FC = () => {
               "RepoFetcher",
               `Fetched page ${processedItemsRef.current}/${total || "?"}`
             );
+          },
+          (statuses) => {
+            setWorkerStatuses(statuses);
           }
         );
+        setWorkerStatuses([]);
 
         if (userRepos.length === 0) {
           toast.info("No public repositories with stars found for this user.");
