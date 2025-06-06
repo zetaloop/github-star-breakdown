@@ -647,17 +647,34 @@ const GitHubStarTracker: React.FC = () => {
                     // Retry failed, skip this page and continue
                     repoPages[task.page].status = "failed";
                     repoErrors[task.repo] = err;
-                    const remaining = markRange(
-                      task.repo,
-                      task.start,
-                      task.end,
-                      "failed"
-                    );
+                    // Mark the range without calling checkRepoCompletion yet
+                    const pages = pagesMap.get(task.repo);
+                    let remaining = 0;
+                    if (pages) {
+                      for (let p = task.start; p <= task.end; p++) {
+                        const info = pages[p];
+                        if (!info) continue;
+                        if (
+                          info.status === "pending" ||
+                          info.status === "scheduled"
+                        ) {
+                          info.status = "failed";
+                          remaining++;
+                        }
+                      }
+                      if (remaining > 0) {
+                        setProcessedItemsCount((prev) => prev + remaining);
+                        setFailedItemsCount((prev) => prev + remaining);
+                      }
+                    }
+                    // Log the error after marking the range
                     log(
                       "error",
                       task.repo,
                       `Failed fetching page ${task.page} on retry, skipping ${remaining} pages: ${err instanceof Error ? err.message : "Unknown."}`
                     );
+                    // Now check for completion
+                    checkRepoCompletion(task.repo);
                     // Don't pause again on retry failure, just continue
                   }
                 }
