@@ -192,6 +192,8 @@ export const fetchReposGraphQL = async (
 
 export interface GraphQLStargazerPageResult {
   stars: GitHubStargazer[];
+  oldest: Date | null;
+  newest: Date | null;
   endCursor: string | null;
   hasNextPage: boolean;
 }
@@ -252,9 +254,17 @@ export const fetchStargazersGraphQL = async (
     starred_at: edge.starredAt,
     user: { login: edge.node.login },
   }));
+  let oldest: Date | null = null;
+  let newest: Date | null = null;
+  if (edges.length > 0) {
+    oldest = new Date(edges[0].starredAt);
+    newest = new Date(edges[edges.length - 1].starredAt);
+  }
   const pageInfo = data.data.repository?.stargazers.pageInfo;
   return {
     stars,
+    oldest,
+    newest,
     endCursor: pageInfo.endCursor,
     hasNextPage: pageInfo.hasNextPage,
   };
