@@ -19,7 +19,7 @@ interface LoadingProgressProps {
   totalItems: number;
   processedItems: number;
   log: LogEntry[];
-  debugEntry?: LogEntry | null;
+  latestEntry?: LogEntry | null;
   currentStage: LoadingStage;
   workerStatuses: WorkerStatus[];
 }
@@ -45,7 +45,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   totalItems,
   processedItems,
   log,
-  debugEntry,
+  latestEntry,
   currentStage,
   workerStatuses,
 }) => {
@@ -63,7 +63,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
         viewport.scrollTop = viewport.scrollHeight;
       });
     }
-  }, [log, debugEntry]);
+  }, [log, latestEntry]);
 
   let barColorClass = "";
   let barBgClass = "";
@@ -153,23 +153,30 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
               </p>
             </div>
           ))}
-          {debugEntry && (
+          {latestEntry && (
             <div className="flex items-start text-xs font-mono whitespace-pre-wrap break-words">
               <div className="flex items-center w-[105px] flex-shrink-0">
                 <span className="text-gray-500 mr-2">
-                  {debugEntry.timestamp.toLocaleTimeString()}
+                  {latestEntry.timestamp.toLocaleTimeString()}
                 </span>
-                <LogIcon type={debugEntry.type} />
+                <LogIcon type={latestEntry.type} />
               </div>
               <p>
-                <span className="font-semibold mr-1.5 text-gray-500">
-                  [{debugEntry.source}]
+                <span
+                  className={cn("font-semibold mr-1.5", {
+                    "text-blue-500": latestEntry.type === "info",
+                    "text-green-500": latestEntry.type === "success",
+                    "text-red-500": latestEntry.type === "error",
+                    "text-gray-500": latestEntry.type === "debug",
+                  })}
+                >
+                  [{latestEntry.source}]
                 </span>
-                <span>{debugEntry.message}</span>
+                <span>{latestEntry.message}</span>
               </p>
             </div>
           )}
-          {log.length === 0 && (
+          {log.length === 0 && !latestEntry && (
             <p className="text-xs font-mono text-muted-foreground animate-pulse pt-1">
               Awaiting process to start...
             </p>

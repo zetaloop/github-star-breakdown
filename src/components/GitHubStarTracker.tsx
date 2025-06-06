@@ -57,7 +57,7 @@ const GitHubStarTracker: React.FC = () => {
   const [totalItemsToProcess, setTotalItemsToProcess] = useState<number>(0);
   const [processedItemsCount, setProcessedItemsCount] = useState<number>(0);
   const [loadingLog, setLoadingLog] = useState<LogEntry[]>([]);
-  const [latestDebug, setLatestDebug] = useState<LogEntry | null>(null);
+  const [latestEntry, setLatestEntry] = useState<LogEntry | null>(null);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
   const [workerStatuses, setWorkerStatuses] = useState<WorkerStatus[]>([]);
   const processedItemsRef = useRef(0);
@@ -80,21 +80,29 @@ const GitHubStarTracker: React.FC = () => {
         message,
         timestamp: new Date(),
       };
+
       if (type === "debug") {
         console.log(`[${source}] ${message}`);
-        setLatestDebug(newEntry);
-        return;
       }
-      setLoadingLog((prev) => {
-        const updatedLog = [...prev, newEntry];
-        // Keep only the last 50 entries to avoid performance issues
-        if (updatedLog.length > 50) {
-          return updatedLog.slice(updatedLog.length - 50);
+
+      setLatestEntry((prevEntry) => {
+        // If the previous entry was a non-debug log, move it to the history.
+        if (prevEntry && prevEntry.type !== "debug") {
+          setLoadingLog((prevLog) => {
+            const updatedLog = [...prevLog, prevEntry];
+            // Keep only the last 50 entries to avoid performance issues
+            if (updatedLog.length > 50) {
+              return updatedLog.slice(updatedLog.length - 50);
+            }
+            return updatedLog;
+          });
         }
-        return updatedLog;
+
+        // The new entry becomes the latest entry.
+        return newEntry;
       });
     },
-    []
+    [setLatestEntry, setLoadingLog]
   );
 
   const handleResetToken = () => {
@@ -159,6 +167,7 @@ const GitHubStarTracker: React.FC = () => {
       setProcessedItemsCount(0);
       processedItemsRef.current = 0;
       setLoadingLog([]);
+      setLatestEntry(null);
       setWorkerStatuses([]);
 
       log("stage", "App", "🚀 Search initiated.");
@@ -719,7 +728,7 @@ const GitHubStarTracker: React.FC = () => {
         log("stage", "App", "✅ Analysis complete.");
       }
     },
-    [log]
+    [log, setLoadingLog, setLatestEntry]
   );
 
   return (
@@ -749,7 +758,7 @@ const GitHubStarTracker: React.FC = () => {
               totalItems={totalItemsToProcess}
               processedItems={processedItemsCount}
               log={loadingLog}
-              debugEntry={latestDebug}
+              latestEntry={latestEntry}
               currentStage={currentStage}
               workerStatuses={workerStatuses}
             />
