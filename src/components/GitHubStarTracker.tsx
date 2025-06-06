@@ -673,9 +673,8 @@ const GitHubStarTracker: React.FC = () => {
                       task.repo,
                       `Failed fetching page ${task.page} on retry, skipping ${remaining} pages: ${err instanceof Error ? err.message : "Unknown."}`
                     );
-                    // Now check for completion
-                    checkRepoCompletion(task.repo);
                     // Don't pause again on retry failure, just continue
+                    // The finally block will handle checkRepoCompletion
                   }
                 }
               } finally {
