@@ -53,8 +53,10 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   currentStage,
   workerStatuses,
 }) => {
+  const activeCount = workerStatuses.filter((s) => s === "active").length;
+  const displayProcessed = processedItems + activeCount;
   const progressPercentage =
-    totalItems > 0 ? (processedItems / totalItems) * 100 : 0;
+    totalItems > 0 ? (displayProcessed / totalItems) * 100 : 0;
   const predictedPercentage =
     totalItems > 0 ? (predictedItems / totalItems) * 100 : 0;
   const fetchedPercentage =
@@ -63,6 +65,8 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       : 0;
   const failedPercentage =
     totalItems > 0 ? (failedItems / totalItems) * 100 : 0;
+  const activePercentage =
+    totalItems > 0 ? (activeCount / totalItems) * 100 : 0;
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -85,12 +89,12 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
     case 0:
       barColorClass = "bg-gray-300 dark:bg-gray-600";
       barBgClass = "bg-secondary";
-      progressText = `Fetching repository list... ${processedItems}/${totalItems || "?"} pages`;
+      progressText = `Fetching repository list... ${displayProcessed}/${totalItems || "?"} pages`;
       break;
     case 1:
       barColorClass = "bg-blue-500";
       barBgClass = "bg-gray-300 dark:bg-gray-600";
-      progressText = `Deep scanning repositories... ${processedItems}/${totalItems} pages`;
+      progressText = `Deep scanning repositories... ${displayProcessed}/${totalItems} pages`;
       break;
     default:
       barColorClass = "bg-primary";
@@ -121,6 +125,10 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
             <div
               className="bg-green-500 transition-all"
               style={{ width: `${fetchedPercentage}%` }}
+            />
+            <div
+              className="bg-gray-400 transition-all"
+              style={{ width: `${activePercentage}%` }}
             />
           </div>
         ) : (

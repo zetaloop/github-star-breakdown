@@ -54,6 +54,7 @@ export class ConcurrencyPool {
         this.workerStatus[workerIndex] = "active";
         if (this.statusCallback) this.statusCallback([...this.workerStatus]);
 
+        let hadError = false;
         const taskPromise = taskFunc()
           .then(() => {
             this.workerStatus[workerIndex] = "idle";
@@ -62,6 +63,7 @@ export class ConcurrencyPool {
           })
           .catch((err) => {
             console.error(`Task in worker ${workerIndex} failed:`, err);
+            hadError = true;
             this.workerStatus[workerIndex] = "error";
             if (this.statusCallback)
               this.statusCallback([...this.workerStatus]);
@@ -71,7 +73,11 @@ export class ConcurrencyPool {
             this.activeCount--;
             this.workerPromiseMap.delete(workerIndex);
             // Continue immediately with the next task
-            this.runNext();
+            if (hadError) {
+              queueMicrotask(() => this.runNext());
+            } else {
+              this.runNext();
+            }
             if (this.activeCount === 0 && this.queue.length === 0) {
               this.allDone.forEach((cb) => cb());
             }
