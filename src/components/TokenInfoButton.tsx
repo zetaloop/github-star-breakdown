@@ -108,48 +108,51 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
     return "bg-green-500";
   };
 
-  const setupTimeLeft = (
-    resetValue: number | null,
-    setValue: React.Dispatch<React.SetStateAction<string>>
-  ) => {
-    if (resetValue === null) {
-      setValue("");
-      return null;
-    }
-    const now = new Date();
-    const resetDate = new Date(resetValue * 1000);
-    const secondsRemaining = differenceInSeconds(resetDate, now);
-    if (secondsRemaining <= 0) {
-      setValue("now");
-      setTimeout(() => {
-        handleOpenChange(true);
-      }, 1000);
-      return null;
-    }
-    if (secondsRemaining < 120) {
-      setValue(
-        formatDistanceStrict(resetDate, now, {
-          unit: "second",
-          addSuffix: true,
-        })
-      );
-    } else if (secondsRemaining < 3600) {
-      setValue(
-        formatDistanceStrict(resetDate, now, {
-          unit: "minute",
-          addSuffix: true,
-        })
-      );
-    } else {
-      setValue(
-        formatDistanceStrict(resetDate, now, {
-          unit: "hour",
-          addSuffix: true,
-        })
-      );
-    }
-    return secondsRemaining;
-  };
+  const setupTimeLeft = useCallback(
+    (
+      resetValue: number | null,
+      setValue: React.Dispatch<React.SetStateAction<string>>
+    ) => {
+      if (resetValue === null) {
+        setValue("");
+        return null;
+      }
+      const now = new Date();
+      const resetDate = new Date(resetValue * 1000);
+      const secondsRemaining = differenceInSeconds(resetDate, now);
+      if (secondsRemaining <= 0) {
+        setValue("now");
+        setTimeout(() => {
+          handleOpenChange(true);
+        }, 1000);
+        return null;
+      }
+      if (secondsRemaining < 120) {
+        setValue(
+          formatDistanceStrict(resetDate, now, {
+            unit: "second",
+            addSuffix: true,
+          })
+        );
+      } else if (secondsRemaining < 3600) {
+        setValue(
+          formatDistanceStrict(resetDate, now, {
+            unit: "minute",
+            addSuffix: true,
+          })
+        );
+      } else {
+        setValue(
+          formatDistanceStrict(resetDate, now, {
+            unit: "hour",
+            addSuffix: true,
+          })
+        );
+      }
+      return secondsRemaining;
+    },
+    [handleOpenChange]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -161,7 +164,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
       if (seconds === null) clearInterval(interval);
     }, 1000);
     return () => clearInterval(interval);
-  }, [open, restReset]);
+  }, [open, restReset, setupTimeLeft]);
 
   useEffect(() => {
     if (!open) return;
@@ -173,7 +176,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
       if (seconds === null) clearInterval(interval);
     }, 1000);
     return () => clearInterval(interval);
-  }, [open, gqlReset]);
+  }, [open, gqlReset, setupTimeLeft]);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
