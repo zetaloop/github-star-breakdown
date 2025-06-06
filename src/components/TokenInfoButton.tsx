@@ -254,7 +254,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
             </div>
           </div>
           {editing ? (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <div className="space-y-1">
                 <Label htmlFor="edit-token" className="text-sm font-medium">
                   New Token
@@ -271,7 +271,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
                   <p className="text-sm text-destructive">{editError}</p>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Button
                   type="button"
                   className="flex-1"
