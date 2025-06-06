@@ -186,7 +186,11 @@ const GitHubStarTracker: React.FC = () => {
         if (predicted > 0) parts.push(`${predicted} predicted`);
         if (unrecorded > 0) parts.push(`${unrecorded} unrecorded`);
 
-        return `Finished loading ${fetchedStars}/${totalStarsInRepo} stars (${parts.join(", ")})`;
+        const starsText =
+          fetchedStars === totalStarsInRepo
+            ? `${fetchedStars} stars`
+            : `${fetchedStars}/${totalStarsInRepo} stars`;
+        return `Finished loading ${starsText} (${parts.join(", ")})`;
       };
 
       setIsLoading(true);
