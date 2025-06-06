@@ -458,10 +458,15 @@ export const verifyGitHubToken = async (token: string): Promise<boolean> => {
   }
 };
 
-export interface RateLimitInfo {
+export interface RateLimitItem {
   limit: number;
   used: number;
   reset: number;
+}
+
+export interface RateLimitInfo {
+  core: RateLimitItem;
+  graphql: RateLimitItem;
 }
 
 export const fetchRateLimit = async (): Promise<RateLimitInfo | null> => {
@@ -476,10 +481,18 @@ export const fetchRateLimit = async (): Promise<RateLimitInfo | null> => {
     }
     const data = await response.json();
     const core = data.resources.core;
+    const graphql = data.resources.graphql;
     return {
-      limit: core.limit,
-      used: core.limit - core.remaining,
-      reset: core.reset,
+      core: {
+        limit: core.limit,
+        used: core.limit - core.remaining,
+        reset: core.reset,
+      },
+      graphql: {
+        limit: graphql.limit,
+        used: graphql.limit - graphql.remaining,
+        reset: graphql.reset,
+      },
     };
   } catch (error) {
     console.error("Error fetching rate limit:", error);
