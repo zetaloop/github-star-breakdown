@@ -270,7 +270,7 @@ const GitHubStarTracker: React.FC = () => {
               pausedRef.current = true;
               setIsPaused(true);
               log("error", "RepoFetcher", err.message);
-              toast.error("Error", { description: err.message });
+              toast.error(err.message);
             },
             waitForResume: () =>
               new Promise<void>((resolve) => {
@@ -673,7 +673,7 @@ const GitHubStarTracker: React.FC = () => {
                       pausedRef.current = true;
                       setIsPaused(true);
                       log("error", task.repo, errorObj.message);
-                      toast.error("Error", { description: errorObj.message });
+                      toast.error(errorObj.message);
                       controllersRef.current.forEach((c) => c.abort());
                     }
                     throw err;
@@ -809,18 +809,14 @@ const GitHubStarTracker: React.FC = () => {
           setError(
             `Rate Limit: ${error.message} Please wait and try again later.`
           );
-          toast.error("Rate Limit", {
-            description: error.message,
-          });
+          toast.error(`Rate Limit: ${error.message}`);
         } else {
           const errorMessage =
             error instanceof Error ? error.message : "Unknown error";
           setError(
             `Failed to fetch data from GitHub API: ${errorMessage}. Please check the username, API token, and network connection.`
           );
-          toast.error("Error fetching GitHub data", {
-            description: errorMessage,
-          });
+          toast.error(`Error fetching GitHub data: ${errorMessage}`);
         }
       } finally {
         setIsLoading(false);
