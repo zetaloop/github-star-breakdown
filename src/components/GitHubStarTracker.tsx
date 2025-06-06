@@ -81,9 +81,7 @@ const GitHubStarTracker: React.FC = () => {
         timestamp: new Date(),
       };
 
-      if (type === "debug") {
-        console.log(`[${source}] ${message}`);
-      }
+      console.log(`[${type.toUpperCase()}] [${source}] ${message}`);
 
       setLatestEntry((prevEntry) => {
         // If the previous entry was a non-debug log, move it to the history.
