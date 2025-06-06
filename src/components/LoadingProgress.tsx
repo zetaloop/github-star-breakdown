@@ -71,13 +71,13 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
 
   switch (currentStage) {
     case 0:
-      barColorClass = "bg-gray-400";
+      barColorClass = "bg-gray-300 dark:bg-gray-600";
       barBgClass = "bg-secondary";
       progressText = `Fetching repository list... ${processedItems}/${totalItems || "?"} pages`;
       break;
     case 1:
       barColorClass = "bg-blue-500";
-      barBgClass = "bg-gray-400";
+      barBgClass = "bg-gray-300 dark:bg-gray-600";
       progressText = `Deep scanning repositories... ${processedItems}/${totalItems} pages`;
       break;
     default:
