@@ -216,6 +216,21 @@ const GitHubStarTracker: React.FC = () => {
         );
         setWorkerStatuses([]);
 
+        if (stopRef.current) {
+          log("stage", "App", "Process aborted by user.");
+          return;
+        }
+
+        if (pausedRef.current) {
+          await new Promise<void>((resolve) => {
+            resumeResolveRef.current = resolve;
+          });
+          if (stopRef.current) {
+            log("stage", "App", "Process aborted by user.");
+            return;
+          }
+        }
+
         if (userRepos.length === 0) {
           toast.info("No public repositories with stars found for this user.");
           log("info", "App", "No public repositories with stars found.");
