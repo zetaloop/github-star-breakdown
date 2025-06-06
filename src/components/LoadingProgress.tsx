@@ -43,7 +43,7 @@ const LogIcon = ({ type }: { type: LogEntry["type"] }) => {
   return (
     <span className="relative select-text inline-flex">
       <IconComp className={cn("h-3 w-3", entry.className)} />
-      <span className="copy-hidden">{type.toUpperCase()}</span>
+      <span className="copy-hidden">{`[${type.toUpperCase()}]`}</span>
     </span>
   );
 };
