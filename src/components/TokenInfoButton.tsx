@@ -7,7 +7,14 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { fetchRateLimit, clearGitHubToken } from "@/services/github";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  fetchRateLimit,
+  clearGitHubToken,
+  setGitHubToken,
+  verifyGitHubToken,
+} from "@/services/github";
 import { formatDistanceStrict, differenceInSeconds } from "date-fns";
 import { toast } from "sonner";
 
@@ -22,6 +29,10 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [newToken, setNewToken] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
+  const [editError, setEditError] = useState("");
   const [restLimit, setRestLimit] = useState<number | null>(null);
   const [restUsed, setRestUsed] = useState<number | null>(null);
   const [restReset, setRestReset] = useState<number | null>(null);
@@ -67,6 +78,23 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
     toast.success("GitHub token cleared");
     setOpen(false);
     if (onReset) onReset();
+  };
+
+  const handleUpdate = async () => {
+    if (!newToken.trim()) return;
+    setIsValidating(true);
+    setEditError("");
+    const isValid = await verifyGitHubToken(newToken);
+    if (isValid) {
+      setGitHubToken(newToken);
+      toast.success("GitHub token updated");
+      setNewToken("");
+      setEditing(false);
+      await fetchAndSetData();
+    } else {
+      setEditError("Invalid GitHub token");
+    }
+    setIsValidating(false);
   };
 
   const restProgress =
@@ -225,6 +253,58 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
               </p>
             </div>
           </div>
+          {editing ? (
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="edit-token" className="text-sm font-medium">
+                  New Token
+                </Label>
+                <Input
+                  id="edit-token"
+                  type="text"
+                  value={newToken}
+                  onChange={(e) => setNewToken(e.target.value)}
+                  autoComplete="off"
+                  style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
+                />
+                {editError && (
+                  <p className="text-sm text-destructive">{editError}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  className="flex-1"
+                  size="sm"
+                  onClick={handleUpdate}
+                  disabled={isValidating}
+                >
+                  {isValidating ? "Updating..." : "Save"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  size="sm"
+                  onClick={() => {
+                    setEditing(false);
+                    setNewToken("");
+                    setEditError("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setEditing(true)}
+            >
+              Edit Token
+            </Button>
+          )}
           <Button
             variant="destructive"
             className="w-full"
