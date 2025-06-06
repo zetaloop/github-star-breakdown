@@ -38,6 +38,7 @@ bun run preview    # Preview production build
 - API interactions are split across services:
   - `src/services/github.ts`: Handles user repository fetching, token management (`get/set/verify`), rate limit checking, and final data processing (`processRepoStarHistory`).
   - `src/services/githubHeavy.ts`: Contains the logic for fetching individual stargazer pages, designed to be used in a concurrent environment.
+  - `src/services/githubApi.ts`: Shared REST and GraphQL helpers. `fetchReposREST` and `fetchStargazersREST` are used by the services above, while `fetchReposGraphQL` and `fetchStargazersGraphQL` expose equivalent GraphQL functionality (numeric repository IDs and `oldest`/`newest` timestamps).
   - `src/services/concurrency.ts`: Provides a `ConcurrencyPool` class to manage and limit simultaneous API requests, preventing rate limit errors and browser overload.
 
 ### Advanced Stargazer Fetching Strategy
@@ -58,3 +59,4 @@ This strategy allows the application to build a sufficiently accurate star histo
 - Components under `src/components/ui` come from the shadcn-ui library. Avoid editing them unless upgrading the library.
 - When creating a pull request, use an English branch name. Commit messages should be written in Chinese and may use prefixes like `feat:` or `fix:` similar to existing commits.
 - Before submitting a PR, ensure your code passes ESLint checks and is formatted with Prettier, successfully passes `bun run lint` (install ESLint if necessary), and builds without errors using `bun run build`.
+- Avoid committing `bun.lockb` or other binary files, as they may cause issues with the PR submission system.
