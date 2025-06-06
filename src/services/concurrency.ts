@@ -4,10 +4,15 @@ export class ConcurrencyPool {
   private limit: number;
   private allDone: (() => void)[] = [];
   private donePromise: Promise<void>;
+  private statuses: Array<"idle" | "active" | "error">;
+  private statusCallback?: (
+    statuses: Array<"idle" | "active" | "error">
+  ) => void;
 
   constructor(limit: number) {
     this.limit = limit;
     this.donePromise = new Promise((resolve) => this.allDone.push(resolve));
+    this.statuses = new Array(limit).fill("idle");
   }
 
   add(taskFunc: () => Promise<void>) {
@@ -23,14 +28,26 @@ export class ConcurrencyPool {
   private runNext() {
     while (this.activeCount < this.limit && this.queue.length > 0) {
       const taskFunc = this.queue.shift()!;
+      const slot = this.statuses.findIndex((s) => s === "idle");
+      if (slot === -1) return;
       this.activeCount++;
-      taskFunc().finally(() => {
-        this.activeCount--;
-        this.runNext();
-        if (this.activeCount === 0 && this.queue.length === 0) {
-          this.allDone.forEach((cb) => cb());
-        }
-      });
+      this.statuses[slot] = "active";
+      this.statusCallback?.([...this.statuses]);
+      taskFunc()
+        .then(() => {
+          this.statuses[slot] = "idle";
+        })
+        .catch(() => {
+          this.statuses[slot] = "error";
+        })
+        .finally(() => {
+          this.activeCount--;
+          this.statusCallback?.([...this.statuses]);
+          this.runNext();
+          if (this.activeCount === 0 && this.queue.length === 0) {
+            this.allDone.forEach((cb) => cb());
+          }
+        });
     }
   }
 
@@ -49,5 +66,12 @@ export class ConcurrencyPool {
 
   getLimit() {
     return this.limit;
+  }
+
+  setStatusCallback(
+    cb: (statuses: Array<"idle" | "active" | "error">) => void
+  ) {
+    this.statusCallback = cb;
+    cb([...this.statuses]);
   }
 }

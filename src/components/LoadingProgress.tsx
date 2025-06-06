@@ -3,6 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import ThreadPoolIndicator, { ThreadStatus } from "./ThreadPoolIndicator";
 
 type LoadingStage = 0 | 1;
 
@@ -11,6 +12,7 @@ interface LoadingProgressProps {
   processedRepos: number;
   log: Array<{ name: string; status: string }>;
   currentStage: LoadingStage;
+  threadStatuses: ThreadStatus[];
 }
 
 const LoadingProgress: React.FC<LoadingProgressProps> = ({
@@ -18,6 +20,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   processedRepos,
   log,
   currentStage,
+  threadStatuses,
 }) => {
   const progressPercentage =
     totalRepos > 0 ? (processedRepos / totalRepos) * 100 : 0;
@@ -79,6 +82,8 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           backgroundColor={barBgClass}
         />
       </div>
+
+      <ThreadPoolIndicator statuses={threadStatuses} />
 
       <ScrollArea
         className="h-48 w-full rounded-md border p-4 bg-muted/40"

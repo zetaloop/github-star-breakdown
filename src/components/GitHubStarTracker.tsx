@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { ConcurrencyPool } from "@/services/concurrency";
 import { fetchStargazerPage } from "@/services/githubHeavy";
+import type { ThreadStatus } from "./ThreadPoolIndicator";
 
 type LoadingStage = 0 | 1 | null;
 
@@ -45,19 +46,22 @@ const GitHubStarTracker: React.FC = () => {
   >([]);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
   const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [poolStatuses, setPoolStatuses] = useState<ThreadStatus[]>(
+    Array(50).fill("idle")
+  );
 
   const logDebug = useCallback((message: string) => {
-    console.log(`[StarTrackerDebug] ${message}`);
-    setDebugLog((prev) => [...prev, message]);
+    const ts = new Date().toISOString().split("T")[1].split(".")[0];
+    console.log(`[StarTracker ${ts}] ${message}`);
+    setDebugLog((prev) => [...prev, `${ts} - ${message}`]);
     setLoadingLog((prev) => {
-      // Avoid duplicating the final "Full data loaded" message
       if (
         prev.length > 0 &&
         prev[prev.length - 1].status.includes("Full data loaded")
       ) {
         return prev;
       }
-      return [...prev, { name: "Debug", status: message }];
+      return [...prev, { name: ts, status: message }];
     });
   }, []);
 
@@ -69,6 +73,7 @@ const GitHubStarTracker: React.FC = () => {
     setStarHistory([]);
     setYearlyIncrements(new Map());
     setError(null);
+    setPoolStatuses(Array(50).fill("idle"));
   };
 
   const handleSearch = useCallback(
@@ -87,6 +92,7 @@ const GitHubStarTracker: React.FC = () => {
       setCurrentStage(0);
       setTotalItemsToProcess(0);
       setProcessedItemsCount(0);
+      setPoolStatuses(Array(50).fill("idle"));
       setLoadingLog([
         { name: "Stage 0", status: "🔍 Fetching repository list..." },
       ]);
@@ -200,6 +206,7 @@ const GitHubStarTracker: React.FC = () => {
         );
 
         const pool = new ConcurrencyPool(50);
+        pool.setStatusCallback((s) => setPoolStatuses(s));
 
         type PageInfo = {
           status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
@@ -521,6 +528,7 @@ const GitHubStarTracker: React.FC = () => {
       } finally {
         setIsLoading(false);
         setCurrentStage(null);
+        setPoolStatuses(Array(50).fill("idle"));
       }
     },
     [logDebug]
@@ -551,6 +559,7 @@ const GitHubStarTracker: React.FC = () => {
               processedRepos={processedItemsCount}
               log={loadingLog}
               currentStage={currentStage}
+              threadStatuses={poolStatuses}
             />
           ) : (
             username &&
