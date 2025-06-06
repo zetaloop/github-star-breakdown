@@ -364,9 +364,7 @@ const GitHubStarTracker: React.FC = () => {
 
         const pagesMap = new Map<string, Record<number, PageInfo>>();
         const taskQueue = taskQueueRef.current;
-        const repoErrors: Record<string, unknown> = {};
         const completedRepos = new Set<string>();
-        const loggedErrors = new Set<string>(); // Track which repos have had their errors logged
         userRepos.forEach((repo) => {
           const pageInfo = repoPageMap[repo.full_name];
           if (!pageInfo) return;
@@ -472,6 +470,12 @@ const GitHubStarTracker: React.FC = () => {
             if (!info) continue;
             if (info.status === "pending" || info.status === "scheduled") {
               info.status = status;
+              const key = `${repo}:${p}`;
+              const controller = controllersRef.current.get(key);
+              if (controller) {
+                controller.abort();
+                controllersRef.current.delete(key);
+              }
               count++;
             }
           }
@@ -676,7 +680,6 @@ const GitHubStarTracker: React.FC = () => {
                   } else {
                     // Retry failed, skip this page and continue
                     repoPages[task.page].status = "failed";
-                    repoErrors[task.repo] = err;
                     // Mark the range without calling checkRepoCompletion yet
                     const pages = pagesMap.get(task.repo);
                     let remaining = 0;
