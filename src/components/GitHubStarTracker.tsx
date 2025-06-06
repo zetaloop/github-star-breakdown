@@ -406,17 +406,25 @@ const GitHubStarTracker: React.FC = () => {
           if (done) {
             completedRepos.add(repo);
             const stars = starsMap.get(repo) || [];
-            const err = repoErrors[repo];
-            if (err && !loggedErrors.has(repo)) {
-              loggedErrors.add(repo);
-              log(
-                "error",
-                repo,
-                `Finished with error: ${err instanceof Error ? err.message : "Unknown error."}`
-              );
-            } else if (!err) {
-              log("success", repo, `Finished loading ${stars.length} stars.`);
-            }
+            const pageStats = Object.values(pages);
+            const fetchedCount = pageStats.filter(
+              (p) => p.status === "fetched"
+            ).length;
+            const failedCount = pageStats.filter(
+              (p) => p.status === "failed"
+            ).length;
+            const skippedCount = pageStats.filter(
+              (p) => p.status === "skipped"
+            ).length;
+            const predictedCount = pageStats.filter(
+              (p) => p.status === "predicted"
+            ).length;
+
+            log(
+              "success",
+              repo,
+              `Finished loading ${stars.length} stars from ${fetchedCount} pages (${failedCount} failed, ${skippedCount} skipped, ${predictedCount} predicted)`
+            );
           }
         };
 
@@ -693,15 +701,27 @@ const GitHubStarTracker: React.FC = () => {
           const stars = starsMap.get(repo.full_name) || [];
           stargazersMap.set(repo.full_name, stars);
           if (!completedRepos.has(repo.full_name)) {
-            const err = repoErrors[repo.full_name];
-            if (err && !loggedErrors.has(repo.full_name)) {
-              loggedErrors.add(repo.full_name);
+            const pages = pagesMap.get(repo.full_name);
+            if (pages) {
+              const pageStats = Object.values(pages);
+              const fetchedCount = pageStats.filter(
+                (p) => p.status === "fetched"
+              ).length;
+              const failedCount = pageStats.filter(
+                (p) => p.status === "failed"
+              ).length;
+              const skippedCount = pageStats.filter(
+                (p) => p.status === "skipped"
+              ).length;
+              const predictedCount = pageStats.filter(
+                (p) => p.status === "predicted"
+              ).length;
               log(
-                "error",
+                "success",
                 repo.full_name,
-                `Finished with error: ${err instanceof Error ? err.message : "Unknown error"}`
+                `Finished loading ${stars.length} stars from ${fetchedCount} pages (${failedCount} failed, ${skippedCount} skipped, ${predictedCount} predicted)`
               );
-            } else if (!err) {
+            } else {
               log(
                 "success",
                 repo.full_name,
