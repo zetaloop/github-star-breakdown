@@ -1,6 +1,5 @@
 import { GitHubStargazer } from "@/types/github";
 import { getGitHubToken, RateLimitError } from "./github";
-import { ConcurrencyPool } from "./concurrency";
 export const fetchStargazerPage = async (
   repoFullName: string,
   page: number,
@@ -25,9 +24,19 @@ export const fetchStargazerPage = async (
       }
       throw new RateLimitError(message, resetTimestamp);
     }
-    throw new Error(
-      `Error fetching page ${page} for ${repoFullName}: ${resp.status} - ${resp.statusText}`
-    );
+    // Try to get error message from response body
+    let errorMessage = `Error fetching page ${page} for ${repoFullName}: [${resp.status}]`;
+    try {
+      const errorData = await resp.json();
+      if (errorData.message) {
+        errorMessage = `Error fetching page ${page} for ${repoFullName}: [${resp.status}] ${errorData.message}`;
+      }
+    } catch (e) {
+      // If JSON parsing fails, fall back to status text
+      const statusText = resp.statusText ? ` - ${resp.statusText}` : "";
+      errorMessage = `Error fetching page ${page} for ${repoFullName}: [${resp.status}] ${statusText}`;
+    }
+    throw new Error(errorMessage);
   }
   const stars: GitHubStargazer[] = await resp.json();
   if (stars.length === 0) {
@@ -39,7 +48,13 @@ export const fetchStargazerPage = async (
 };
 
 export type PageInfo = {
-  status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
+  status:
+    | "pending"
+    | "scheduled"
+    | "fetched"
+    | "skipped"
+    | "predicted"
+    | "failed";
   oldest?: Date | null;
   newest?: Date | null;
 };

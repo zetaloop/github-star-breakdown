@@ -32,7 +32,13 @@ export type LogEntry = {
 };
 
 export type PageInfo = {
-  status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
+  status:
+    | "pending"
+    | "scheduled"
+    | "fetched"
+    | "skipped"
+    | "predicted"
+    | "failed";
   oldest?: Date | null;
   newest?: Date | null;
 };
@@ -63,6 +69,7 @@ const GitHubStarTracker: React.FC = () => {
   const [totalItemsToProcess, setTotalItemsToProcess] = useState<number>(0);
   const [processedItemsCount, setProcessedItemsCount] = useState<number>(0);
   const [predictedItemsCount, setPredictedItemsCount] = useState<number>(0);
+  const [failedItemsCount, setFailedItemsCount] = useState<number>(0);
   const [loadingLog, setLoadingLog] = useState<LogEntry[]>([]);
   const [latestEntry, setLatestEntry] = useState<LogEntry | null>(null);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
@@ -171,6 +178,7 @@ const GitHubStarTracker: React.FC = () => {
       setTotalItemsToProcess(0);
       setProcessedItemsCount(0);
       setPredictedItemsCount(0);
+      setFailedItemsCount(0);
       processedItemsRef.current = 0;
       setLoadingLog([]);
       setLatestEntry(null);
@@ -410,23 +418,30 @@ const GitHubStarTracker: React.FC = () => {
           }
         };
 
-        const markRange = (repo: string, s: number, e: number) => {
+        const markRange = (
+          repo: string,
+          s: number,
+          e: number,
+          status: PageInfo["status"] = "predicted"
+        ) => {
           const pages = pagesMap.get(repo);
           if (!pages) return 0;
           let count = 0;
           for (let p = s; p <= e; p++) {
             const info = pages[p];
             if (!info) continue;
-            if (info.status === "pending") {
-              info.status = "predicted";
+            if (info.status === "pending" || info.status === "scheduled") {
+              info.status = status;
               count++;
-            } else if (info.status === "scheduled") {
-              info.status = "predicted";
             }
           }
           if (count) {
             setProcessedItemsCount((prev) => prev + count);
-            setPredictedItemsCount((prev) => prev + count);
+            if (status === "predicted") {
+              setPredictedItemsCount((prev) => prev + count);
+            } else if (status === "failed") {
+              setFailedItemsCount((prev) => prev + count);
+            }
           }
           checkRepoCompletion(repo);
           return count;
@@ -614,12 +629,13 @@ const GitHubStarTracker: React.FC = () => {
                     const remaining = markRange(
                       task.repo,
                       task.start,
-                      task.end
+                      task.end,
+                      "failed"
                     );
                     log(
                       "error",
                       task.repo,
-                      `Failed fetching page ${task.page} on retry: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages.`
+                      `Failed fetching page ${task.page} on retry: ${err instanceof Error ? err.message : "Unknown."} Skipping ${remaining} pages.`
                     );
                   }
                   if (!pausedRef.current) {
@@ -629,12 +645,13 @@ const GitHubStarTracker: React.FC = () => {
                     toast.error("Error", { description: errorObj.message });
                     controllersRef.current.forEach((c) => c.abort());
                   }
+                  throw err;
                 }
               } finally {
                 controllersRef.current.delete(key);
                 checkRepoCompletion(task.repo);
+                pumpRef.current();
               }
-              pumpRef.current();
             });
           }
         };
@@ -776,6 +793,7 @@ const GitHubStarTracker: React.FC = () => {
               totalItems={totalItemsToProcess}
               processedItems={processedItemsCount}
               predictedItems={predictedItemsCount}
+              failedItems={failedItemsCount}
               log={loadingLog}
               latestEntry={latestEntry}
               currentStage={currentStage}

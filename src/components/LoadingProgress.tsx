@@ -19,6 +19,7 @@ interface LoadingProgressProps {
   totalItems: number;
   processedItems: number;
   predictedItems: number;
+  failedItems: number;
   log: LogEntry[];
   latestEntry?: LogEntry | null;
   currentStage: LoadingStage;
@@ -46,6 +47,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   totalItems,
   processedItems,
   predictedItems,
+  failedItems,
   log,
   latestEntry,
   currentStage,
@@ -56,7 +58,11 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   const predictedPercentage =
     totalItems > 0 ? (predictedItems / totalItems) * 100 : 0;
   const fetchedPercentage =
-    totalItems > 0 ? ((processedItems - predictedItems) / totalItems) * 100 : 0;
+    totalItems > 0
+      ? ((processedItems - predictedItems - failedItems) / totalItems) * 100
+      : 0;
+  const failedPercentage =
+    totalItems > 0 ? (failedItems / totalItems) * 100 : 0;
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -104,6 +110,10 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
             key="multi"
             className="relative h-4 w-full overflow-hidden rounded-full bg-gray-300 dark:bg-gray-600 flex"
           >
+            <div
+              className="bg-red-500 transition-all"
+              style={{ width: `${failedPercentage}%` }}
+            />
             <div
               className="bg-blue-500 transition-all"
               style={{ width: `${predictedPercentage}%` }}
