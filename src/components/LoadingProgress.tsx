@@ -167,7 +167,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           {log.map((entry, index) => (
             <div
               key={index}
-              className="flex items-start text-xs font-mono whitespace-pre-wrap break-words"
+              className="flex items-start text-xs font-mono break-words"
             >
               <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
                 <span className="text-gray-500 mr-2">
@@ -190,7 +190,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
             </div>
           ))}
           {latestEntry && (
-            <div className="flex items-start text-xs font-mono whitespace-pre-wrap break-words">
+            <div className="flex items-start text-xs font-mono break-words">
               <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
                 <span className="text-gray-500 mr-2">
                   {latestEntry.timestamp.toLocaleTimeString()}{" "}
