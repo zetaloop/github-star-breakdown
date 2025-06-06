@@ -169,9 +169,9 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
               key={index}
               className="flex items-start text-xs font-mono whitespace-pre-wrap break-words"
             >
-              <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
+              <span className="inline-flex items-center flex-shrink-0 mr-2">
                 <span className="text-gray-500 mr-2">
-                  {entry.timestamp.toLocaleTimeString()}{" "}
+                  {entry.timestamp.toLocaleTimeString()}
                 </span>
                 <LogIcon type={entry.type} />
               </span>
@@ -191,9 +191,9 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
           ))}
           {latestEntry && (
             <div className="flex items-start text-xs font-mono whitespace-pre-wrap break-words">
-              <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
+              <span className="inline-flex items-center flex-shrink-0 mr-2">
                 <span className="text-gray-500 mr-2">
-                  {latestEntry.timestamp.toLocaleTimeString()}{" "}
+                  {latestEntry.timestamp.toLocaleTimeString()}
                 </span>
                 <LogIcon type={latestEntry.type} />
               </span>
