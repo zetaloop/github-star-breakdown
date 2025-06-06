@@ -25,7 +25,7 @@ import { fetchStargazerPage } from "@/services/githubHeavy";
 type LoadingStage = 0 | 1 | null;
 
 export type LogEntry = {
-  type: "stage" | "info" | "success" | "error" | "debug";
+  type: "stage" | "info" | "success" | "warning" | "error" | "debug";
   source: string; // e.g., "App", "RepoFetcher", "StargazerFetcher", or a specific repo name
   message: string;
   timestamp: Date;
@@ -166,7 +166,7 @@ const GitHubStarTracker: React.FC = () => {
         totalStarsInRepo: number,
         fetchedStars: number,
         pageStats: { status: string }[]
-      ): string => {
+      ): { message: string; type: "success" | "warning" } => {
         const fetched = pageStats.filter((p) => p.status === "fetched").length;
         const failed = pageStats.filter((p) => p.status === "failed").length;
         const skipped = pageStats.filter((p) => p.status === "skipped").length;
@@ -190,7 +190,11 @@ const GitHubStarTracker: React.FC = () => {
           fetchedStars === totalStarsInRepo
             ? `${fetchedStars} stars`
             : `${fetchedStars}/${totalStarsInRepo} stars`;
-        return `Finished loading ${starsText} (${parts.join(", ")})`;
+
+        const message = `Finished loading ${starsText} (${parts.join(", ")})`;
+        const type = fetchedStars === totalStarsInRepo ? "success" : "warning";
+
+        return { message, type };
       };
 
       setIsLoading(true);
@@ -442,16 +446,13 @@ const GitHubStarTracker: React.FC = () => {
             const repoInfo = userRepos.find((r) => r.full_name === repo);
             const totalStarsInRepo = repoInfo?.stargazers_count || 0;
 
-            log(
-              "success",
+            const { message, type } = formatFinishedLoadingMessage(
               repo,
-              formatFinishedLoadingMessage(
-                repo,
-                totalStarsInRepo,
-                stars.length,
-                pageStats
-              )
+              totalStarsInRepo,
+              stars.length,
+              pageStats
             );
+            log(type, repo, message);
           }
         };
 
@@ -747,16 +748,13 @@ const GitHubStarTracker: React.FC = () => {
             const pages = pagesMap.get(repo.full_name);
             if (pages) {
               const pageStats = Object.values(pages);
-              log(
-                "success",
+              const { message, type } = formatFinishedLoadingMessage(
                 repo.full_name,
-                formatFinishedLoadingMessage(
-                  repo.full_name,
-                  repo.stargazers_count,
-                  stars.length,
-                  pageStats
-                )
+                repo.stargazers_count,
+                stars.length,
+                pageStats
               );
+              log(type, repo.full_name, message);
             } else {
               log(
                 "success",

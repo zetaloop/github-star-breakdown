@@ -11,6 +11,7 @@ import {
   Info,
   ChevronsRight,
   CircleEllipsis,
+  CircleHelp,
 } from "lucide-react";
 
 type LoadingStage = 0 | 1;
@@ -30,6 +31,8 @@ const LogIcon = ({ type }: { type: LogEntry["type"] }) => {
   switch (type) {
     case "success":
       return <CheckCircle2 className="h-3 w-3 text-green-500" />;
+    case "warning":
+      return <CircleHelp className="h-3 w-3 text-yellow-500" />;
     case "error":
       return <XCircle className="h-3 w-3 text-red-500" />;
     case "info":
@@ -175,6 +178,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
                   className={cn("font-semibold mr-1.5", {
                     "text-blue-500": entry.type === "info",
                     "text-green-500": entry.type === "success",
+                    "text-yellow-500": entry.type === "warning",
                     "text-red-500": entry.type === "error",
                     "text-gray-500": entry.type === "debug",
                   })}
