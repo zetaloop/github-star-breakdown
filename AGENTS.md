@@ -24,10 +24,10 @@ bun install
 ## Useful Scripts
 Run scripts via Bun:
 ```bash
-bun run dev      # Start development server
-bun run build    # Build for production
-bun run lint     # Run ESLint (No output if everything is fine)
-bun run preview  # Preview production build
+bun run dev        # Start development server
+bun run build      # Build for production
+bun run lint --fix # Run ESLint (No output if everything is fine)
+bun run preview    # Preview production build
 ```
 
 ## Development Notes
