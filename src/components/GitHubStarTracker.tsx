@@ -19,10 +19,17 @@ import {
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { ConcurrencyPool } from "@/services/concurrency";
+import { ConcurrencyPool, WorkerStatus } from "@/services/concurrency";
 import { fetchStargazerPage } from "@/services/githubHeavy";
 
 type LoadingStage = 0 | 1 | null;
+
+export type LogEntry = {
+  type: "stage" | "info" | "success" | "error" | "debug";
+  source: string; // e.g., "App", "RepoFetcher", "StargazerFetcher", or a specific repo name
+  message: string;
+  timestamp: Date;
+};
 
 const GitHubStarTracker: React.FC = () => {
   const [hasValidToken, setHasValidToken] =
@@ -40,26 +47,29 @@ const GitHubStarTracker: React.FC = () => {
   );
   const [totalItemsToProcess, setTotalItemsToProcess] = useState<number>(0);
   const [processedItemsCount, setProcessedItemsCount] = useState<number>(0);
-  const [loadingLog, setLoadingLog] = useState<
-    Array<{ name: string; status: string }>
-  >([]);
+  const [loadingLog, setLoadingLog] = useState<LogEntry[]>([]);
   const [currentStage, setCurrentStage] = useState<LoadingStage>(null);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [workerStatuses, setWorkerStatuses] = useState<WorkerStatus[]>([]);
 
-  const logDebug = useCallback((message: string) => {
-    console.log(`[StarTrackerDebug] ${message}`);
-    setDebugLog((prev) => [...prev, message]);
-    setLoadingLog((prev) => {
-      // Avoid duplicating the final "Full data loaded" message
-      if (
-        prev.length > 0 &&
-        prev[prev.length - 1].status.includes("Full data loaded")
-      ) {
-        return prev;
+  const log = useCallback(
+    (
+      type: LogEntry["type"],
+      source: LogEntry["source"],
+      message: LogEntry["message"]
+    ) => {
+      const newEntry: LogEntry = {
+        type,
+        source,
+        message,
+        timestamp: new Date(),
+      };
+      if (type === "debug") {
+        console.log(`[${source}] ${message}`);
       }
-      return [...prev, { name: "Debug", status: message }];
-    });
-  }, []);
+      setLoadingLog((prev) => [...prev, newEntry]);
+    },
+    []
+  );
 
   const handleResetToken = () => {
     clearGitHubToken();
@@ -87,10 +97,10 @@ const GitHubStarTracker: React.FC = () => {
       setCurrentStage(0);
       setTotalItemsToProcess(0);
       setProcessedItemsCount(0);
-      setLoadingLog([
-        { name: "Stage 0", status: "🔍 Fetching repository list..." },
-      ]);
-      setDebugLog([]);
+      setLoadingLog([]);
+      setWorkerStatuses([]);
+
+      log("stage", "App", "🚀 Search initiated.");
 
       try {
         const now = new Date();
@@ -112,42 +122,35 @@ const GitHubStarTracker: React.FC = () => {
           untilDateForRange = customRange.to;
         }
 
+        log("stage", "RepoFetcher", "Fetching repository list...");
         const userRepos = await fetchUserRepos(
           usernameInput,
-          (delta, totalPages) => {
-            let currentProcessedCount = 0;
-            setProcessedItemsCount((prevCount) => {
-              currentProcessedCount = prevCount + delta;
-              return currentProcessedCount;
-            });
-
-            if (totalPages) {
-              setTotalItemsToProcess(totalPages);
-            } else {
-              setTotalItemsToProcess(0);
+          (processedDelta, total) => {
+            setProcessedItemsCount((prev) => prev + processedDelta);
+            if (total) {
+              setTotalItemsToProcess(total);
             }
-            setLoadingLog((prev) => {
-              const logEntry = `🔍 Fetching repository list... Page ${currentProcessedCount}${totalPages ? `/${totalPages}` : " (determining total...)"}`;
-              if (prev.length > 0 && prev[prev.length - 1].name === "Stage 0") {
-                const updatedLog = [...prev];
-                updatedLog[updatedLog.length - 1] = {
-                  name: "Stage 0",
-                  status: logEntry,
-                };
-                return updatedLog;
-              }
-              return [...prev, { name: "Stage 0", status: logEntry }];
-            });
+            log(
+              "info",
+              "RepoFetcher",
+              `Fetched page ${processedItemsCount + processedDelta}/${total || "?"}`
+            );
           }
         );
 
         if (userRepos.length === 0) {
           toast.info("No public repositories with stars found for this user.");
+          log("info", "App", "No public repositories with stars found.");
           setCurrentStage(null);
           setIsLoading(false);
           return;
         }
 
+        log(
+          "success",
+          "RepoFetcher",
+          `Found ${userRepos.length} repositories with stars.`
+        );
         setRepos(userRepos);
 
         setCurrentStage(1);
@@ -188,18 +191,19 @@ const GitHubStarTracker: React.FC = () => {
         }
         setTotalItemsToProcess(totalPagesToProcess);
         setProcessedItemsCount(0);
-        setLoadingLog((prev) => [
-          ...prev,
-          {
-            name: "Stage 1",
-            status: `📗 Starting deep scan of ${userRepos.length} repos (${totalPagesToProcess} estimated pages)`,
-          },
-        ]);
+        log(
+          "stage",
+          "StargazerFetcher",
+          `Starting deep scan of ${userRepos.length} repos (${totalPagesToProcess} estimated pages).`
+        );
         toast.info(
           `Fetching stargazers for ${userRepos.length} repositories...`
         );
 
         const pool = new ConcurrencyPool(50);
+        const statusInterval = setInterval(() => {
+          setWorkerStatuses(pool.getWorkerStatuses());
+        }, 200);
 
         type PageInfo = {
           status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
@@ -257,8 +261,10 @@ const GitHubStarTracker: React.FC = () => {
                 start: bounds.start,
                 end: bounds.end,
               });
-              logDebug(
-                `[InitQueue] Enqueued ${name} page ${p} (initial quantile)`
+              log(
+                "debug",
+                "Scheduler",
+                `Enqueued ${name} page ${p} (initial quantile)`
               );
             }
           }
@@ -318,7 +324,7 @@ const GitHubStarTracker: React.FC = () => {
           if (!repoPages) return;
           if (repoPages[mid].status !== "pending") return;
           taskQueue.push({ repo, page: mid, start: s, end: e });
-          logDebug(`[Enqueue] Added ${repo} page ${mid} to queue.`);
+          log("debug", "Scheduler", `Enqueued ${repo} page ${mid}.`);
         };
 
         const pump = () => {
@@ -330,11 +336,17 @@ const GitHubStarTracker: React.FC = () => {
             const repoPages = pagesMap.get(task.repo)!;
             if (repoPages[task.page].status !== "pending") continue;
             repoPages[task.page].status = "scheduled";
-            logDebug(`[Pump] Starting task for ${task.repo} page ${task.page}`);
+            log(
+              "debug",
+              "Pool",
+              `Starting task for ${task.repo} page ${task.page}`
+            );
             pool.add(async () => {
               if (repoPages[task.page].status !== "scheduled") {
-                logDebug(
-                  `[Pump] Skipped task for ${task.repo} page ${task.page} because status changed to ${repoPages[task.page].status}`
+                log(
+                  "debug",
+                  "Pool",
+                  `Skipped ${task.repo} page ${task.page}, status is now ${repoPages[task.page].status}`
                 );
                 return;
               }
@@ -344,20 +356,24 @@ const GitHubStarTracker: React.FC = () => {
                   task.page
                 );
                 setProcessedItemsCount((prev) => prev + 1);
-                logDebug(
-                  `[FetchOK] Fetched ${task.repo} page ${task.page}. Stars: ${stars.length}, Oldest: ${oldest?.toISOString()}, Newest: ${newest?.toISOString()}`
+                log(
+                  "debug",
+                  task.repo,
+                  `Fetched page ${task.page}. Stars: ${stars.length}, Oldest: ${oldest?.toISOString()}, Newest: ${newest?.toISOString()}`
                 );
                 if (!stars.length) {
                   repoPages[task.page].status = "skipped";
-                  logDebug(`[Skip] ${task.repo} page ${task.page} is empty.`);
+                  log("info", task.repo, `Page ${task.page} is empty.`);
                 } else if (
                   untilDateForRange &&
                   oldest &&
                   oldest > untilDateForRange
                 ) {
                   repoPages[task.page].status = "skipped";
-                  logDebug(
-                    `[Skip] ${task.repo} page ${task.page} is out of range (too new).`
+                  log(
+                    "info",
+                    task.repo,
+                    `Page ${task.page} is out of range (too new).`
                   );
                   const predictedCount = markRange(
                     task.repo,
@@ -365,8 +381,10 @@ const GitHubStarTracker: React.FC = () => {
                     task.end
                   );
                   if (predictedCount > 0)
-                    logDebug(
-                      `[Predict] Marked ${predictedCount} pages after ${task.page} as predicted for ${task.repo}.`
+                    log(
+                      "info",
+                      "Predictor",
+                      `Marked ${predictedCount} pages after ${task.page} as predicted for ${task.repo}.`
                     );
                   enqueueRange(task.repo, task.start, task.page - 1);
                 } else if (
@@ -375,8 +393,10 @@ const GitHubStarTracker: React.FC = () => {
                   newest < sinceDateForRange
                 ) {
                   repoPages[task.page].status = "skipped";
-                  logDebug(
-                    `[Skip] ${task.repo} page ${task.page} is out of range (too old).`
+                  log(
+                    "info",
+                    task.repo,
+                    `Page ${task.page} is out of range (too old).`
                   );
                   const predictedCount = markRange(
                     task.repo,
@@ -384,8 +404,10 @@ const GitHubStarTracker: React.FC = () => {
                     task.page - 1
                   );
                   if (predictedCount > 0)
-                    logDebug(
-                      `[Predict] Marked ${predictedCount} pages before ${task.page} as predicted for ${task.repo}.`
+                    log(
+                      "info",
+                      "Predictor",
+                      `Marked ${predictedCount} pages before ${task.page} as predicted for ${task.repo}.`
                     );
                   enqueueRange(task.repo, task.page + 1, task.end);
                 } else {
@@ -406,8 +428,10 @@ const GitHubStarTracker: React.FC = () => {
                       task.page - 1
                     );
                     if (predictedCount > 0)
-                      logDebug(
-                        `[Predict] Marked ${predictedCount} pages between ${prev} and ${task.page} as predicted for ${task.repo} (same day).`
+                      log(
+                        "info",
+                        "Predictor",
+                        `Marked ${predictedCount} pages between ${prev} and ${task.page} as predicted for ${task.repo} (same day).`
                       );
                   }
                   const next = findNextFetched(task.repo, task.page, task.end);
@@ -421,8 +445,10 @@ const GitHubStarTracker: React.FC = () => {
                       next - 1
                     );
                     if (predictedCount > 0)
-                      logDebug(
-                        `[Predict] Marked ${predictedCount} pages between ${task.page} and ${next} as predicted for ${task.repo} (same day).`
+                      log(
+                        "info",
+                        "Predictor",
+                        `Marked ${predictedCount} pages between ${task.page} and ${next} as predicted for ${task.repo} (same day).`
                       );
                   }
                   enqueueRange(task.repo, task.start, task.page - 1);
@@ -431,8 +457,10 @@ const GitHubStarTracker: React.FC = () => {
               } catch (err) {
                 repoErrors[task.repo] = err;
                 const remaining = markRange(task.repo, task.start, task.end);
-                logDebug(
-                  `[Error] Failed fetching ${task.repo} page ${task.page}: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages for this repo.`
+                log(
+                  "error",
+                  task.repo,
+                  `Failed fetching page ${task.page}: ${err instanceof Error ? err.message : "Unknown"}. Skipping ${remaining} pages.`
                 );
               }
               pump();
@@ -442,27 +470,26 @@ const GitHubStarTracker: React.FC = () => {
 
         pump();
         await pool.awaitAll();
+        clearInterval(statusInterval);
+        setWorkerStatuses(pool.getWorkerStatuses()); // Final update
 
+        log("stage", "App", "Processing final data.");
         for (const repo of userRepos) {
           const stars = starsMap.get(repo.full_name) || [];
           stargazersMap.set(repo.full_name, stars);
           const err = repoErrors[repo.full_name];
           if (err) {
-            setLoadingLog((prev) => [
-              ...prev,
-              {
-                name: repo.full_name,
-                status: `❌ Error loading pages: ${err instanceof Error ? err.message : "Unknown error"}`,
-              },
-            ]);
+            log(
+              "error",
+              repo.full_name,
+              `Finished with error: ${err instanceof Error ? err.message : "Unknown error"}`
+            );
           } else {
-            setLoadingLog((prev) => [
-              ...prev,
-              {
-                name: repo.full_name,
-                status: `✅ Full data loaded (${stars.length} stars)`,
-              },
-            ]);
+            log(
+              "success",
+              repo.full_name,
+              `Finished loading ${stars.length} stars.`
+            );
           }
         }
 
@@ -521,9 +548,10 @@ const GitHubStarTracker: React.FC = () => {
       } finally {
         setIsLoading(false);
         setCurrentStage(null);
+        log("stage", "App", "✅ Analysis complete.");
       }
     },
-    [logDebug]
+    [log]
   );
 
   return (
@@ -547,10 +575,11 @@ const GitHubStarTracker: React.FC = () => {
 
           {isLoading && currentStage !== null ? (
             <LoadingProgress
-              totalRepos={totalItemsToProcess}
-              processedRepos={processedItemsCount}
+              totalItems={totalItemsToProcess}
+              processedItems={processedItemsCount}
               log={loadingLog}
               currentStage={currentStage}
+              workerStatuses={workerStatuses}
             />
           ) : (
             username &&

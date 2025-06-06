@@ -1,3 +1,5 @@
+export type WorkerStatus = "idle" | "active" | "error";
+
 export class ConcurrencyPool {
   private queue: Array<() => Promise<void>> = [];
   private activeCount = 0;
@@ -5,9 +7,14 @@ export class ConcurrencyPool {
   private allDone: (() => void)[] = [];
   private donePromise: Promise<void>;
 
+  // New properties for worker status tracking
+  private workerStatus: WorkerStatus[];
+  private workerPromiseMap: Map<number, Promise<void>> = new Map();
+
   constructor(limit: number) {
     this.limit = limit;
     this.donePromise = new Promise((resolve) => this.allDone.push(resolve));
+    this.workerStatus = Array(limit).fill("idle");
   }
 
   add(taskFunc: () => Promise<void>) {
@@ -23,14 +30,48 @@ export class ConcurrencyPool {
   private runNext() {
     while (this.activeCount < this.limit && this.queue.length > 0) {
       const taskFunc = this.queue.shift()!;
-      this.activeCount++;
-      taskFunc().finally(() => {
-        this.activeCount--;
-        this.runNext();
-        if (this.activeCount === 0 && this.queue.length === 0) {
-          this.allDone.forEach((cb) => cb());
+
+      // Find an available worker slot
+      let workerIndex = -1;
+      for (let i = 0; i < this.limit; i++) {
+        if (
+          this.workerStatus[i] === "idle" ||
+          this.workerStatus[i] === "error"
+        ) {
+          workerIndex = i;
+          break;
         }
-      });
+      }
+
+      if (workerIndex !== -1) {
+        this.activeCount++;
+        this.workerStatus[workerIndex] = "active";
+
+        const taskPromise = taskFunc()
+          .then(() => {
+            this.workerStatus[workerIndex] = "idle";
+          })
+          .catch((err) => {
+            console.error(`Task in worker ${workerIndex} failed:`, err);
+            this.workerStatus[workerIndex] = "error";
+            // We still need to continue processing other tasks
+          })
+          .finally(() => {
+            this.activeCount--;
+            this.workerPromiseMap.delete(workerIndex);
+            this.runNext();
+            if (this.activeCount === 0 && this.queue.length === 0) {
+              this.allDone.forEach((cb) => cb());
+            }
+          });
+
+        this.workerPromiseMap.set(workerIndex, taskPromise);
+      } else {
+        // This case should technically not be reached if activeCount < limit
+        // but as a safeguard, we put the task back.
+        this.queue.unshift(taskFunc);
+        break;
+      }
     }
   }
 
@@ -49,5 +90,10 @@ export class ConcurrencyPool {
 
   getLimit() {
     return this.limit;
+  }
+
+  // Method to get the status of all workers
+  getWorkerStatuses(): WorkerStatus[] {
+    return [...this.workerStatus];
   }
 }

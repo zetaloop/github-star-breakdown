@@ -3,28 +3,49 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { LogEntry } from "./GitHubStarTracker";
+import { WorkerStatus } from "@/services/concurrency";
+import { CheckCircle2, XCircle, Info, ChevronsRight, Bug } from "lucide-react";
 
 type LoadingStage = 0 | 1;
 
 interface LoadingProgressProps {
-  totalRepos: number;
-  processedRepos: number;
-  log: Array<{ name: string; status: string }>;
+  totalItems: number;
+  processedItems: number;
+  log: LogEntry[];
   currentStage: LoadingStage;
+  workerStatuses: WorkerStatus[];
 }
 
+const LogIcon = ({ type }: { type: LogEntry["type"] }) => {
+  switch (type) {
+    case "success":
+      return <CheckCircle2 className="h-3 w-3 text-green-500" />;
+    case "error":
+      return <XCircle className="h-3 w-3 text-red-500" />;
+    case "info":
+      return <Info className="h-3 w-3 text-blue-500" />;
+    case "stage":
+      return <ChevronsRight className="h-3 w-3 text-gray-500" />;
+    case "debug":
+      return <Bug className="h-3 w-3 text-purple-500" />;
+    default:
+      return null;
+  }
+};
+
 const LoadingProgress: React.FC<LoadingProgressProps> = ({
-  totalRepos,
-  processedRepos,
+  totalItems,
+  processedItems,
   log,
   currentStage,
+  workerStatuses,
 }) => {
   const progressPercentage =
-    totalRepos > 0 ? (processedRepos / totalRepos) * 100 : 0;
+    totalItems > 0 ? (processedItems / totalItems) * 100 : 0;
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll log area when new entries appear
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector(
       "div[data-radix-scroll-area-viewport]"
@@ -39,31 +60,22 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   let barColorClass = "";
   let barBgClass = "";
   let progressText = "";
-  let logPrefixFn: (index: number, total: number) => string;
 
   switch (currentStage) {
     case 0:
       barColorClass = "bg-gray-400";
       barBgClass = "bg-secondary";
-      if (currentStage === 0 && totalRepos === 0) {
-        progressText = `Fetching repository list...`;
-        logPrefixFn = (index) => `[Repo Page ${index + 1}]`;
-      } else {
-        progressText = `Fetching repository list... ${processedRepos}/${totalRepos} pages`;
-        logPrefixFn = (index, total) => `[Repo Page ${index + 1}/${total}]`;
-      }
+      progressText = `Fetching repository list... ${processedItems}/${totalItems || "?"} pages`;
       break;
     case 1:
       barColorClass = "bg-blue-500";
       barBgClass = "bg-gray-400";
-      progressText = `Loading star history... ${processedRepos}/${totalRepos} pages`;
-      logPrefixFn = (index) => `[Star Page ${index + 1}]`;
+      progressText = `Deep scanning repositories... ${processedItems}/${totalItems} pages`;
       break;
     default:
       barColorClass = "bg-primary";
       barBgClass = "bg-secondary";
       progressText = "Processing...";
-      logPrefixFn = (index) => `[${index + 1}]`;
   }
 
   return (
@@ -71,6 +83,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
       <div className="space-y-2">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>{progressText}</span>
+          <span>{Math.round(progressPercentage)}%</span>
         </div>
         <Progress
           key={currentStage}
@@ -80,40 +93,68 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
         />
       </div>
 
+      {workerStatuses.length > 0 && (
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">
+            Worker Threads ({workerStatuses.length})
+          </p>
+          <div className="flex h-3 w-full space-x-px rounded-sm overflow-hidden border">
+            {workerStatuses.map((status, index) => (
+              <div
+                key={index}
+                className={cn("w-full h-full", {
+                  "bg-green-500/80": status === "active",
+                  "bg-red-500/80": status === "error",
+                  "bg-secondary": status === "idle",
+                })}
+                title={`Worker ${index + 1}: ${status}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <ScrollArea
-        className="h-48 w-full rounded-md border p-4 bg-muted/40"
+        className="h-64 w-full rounded-md border p-3 bg-muted/40"
         ref={scrollAreaRef}
       >
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {log.map((entry, index) => (
-            <p
+            <div
               key={index}
-              className="text-xs font-mono whitespace-pre-wrap break-words"
+              className="flex items-start text-xs font-mono whitespace-pre-wrap break-words"
             >
-              <span
-                className={cn(
-                  "mr-1",
-                  entry.status.startsWith("✅") ? "text-green-500" : "",
-                  entry.status.startsWith("❌") ? "text-red-500" : "",
-                  entry.status.startsWith("🔄") ? "text-yellow-500" : ""
-                )}
-              >
-                {logPrefixFn(index, totalRepos)}
-              </span>
-              <span className="font-semibold mr-1">{entry.name}:</span>
-              <span>{entry.status}</span>
-            </p>
+              <div className="flex items-center w-[105px] flex-shrink-0">
+                <span className="text-gray-500 mr-2">
+                  {entry.timestamp.toLocaleTimeString()}
+                </span>
+                <LogIcon type={entry.type} />
+              </div>
+              <p>
+                <span
+                  className={cn("font-semibold mr-1.5", {
+                    "text-blue-500": entry.type === "info",
+                    "text-green-500": entry.type === "success",
+                    "text-red-500": entry.type === "error",
+                    "text-purple-500": entry.type === "debug",
+                  })}
+                >
+                  [{entry.source}]
+                </span>
+                <span>{entry.message}</span>
+              </p>
+            </div>
           ))}
-          {log.length === 0 && totalRepos > 0 && (
+          {log.length === 0 && (
             <p className="text-xs font-mono text-muted-foreground animate-pulse pt-1">
-              Starting fetch process...
+              Awaiting process to start...
             </p>
           )}
         </div>
       </ScrollArea>
 
       <div className="space-y-4 mt-4 pt-4">
-        {[...Array(7)].map((_, index) => (
+        {[...Array(3)].map((_, index) => (
           <Skeleton
             key={index}
             className="h-5 w-full animate-enhanced-pulse"
