@@ -98,7 +98,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
       }, 1000);
       return null;
     }
-    if (secondsRemaining < 60) {
+    if (secondsRemaining < 120) {
       setValue(
         formatDistanceStrict(resetDate, now, {
           unit: "second",
@@ -154,11 +154,11 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
           Token Info
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72">
-        <div className="space-y-3">
-          <div className="space-y-2">
+      <PopoverContent className="w-[22rem]">
+        <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">REST API Usage</p>
+              <p className="font-medium">API Usage</p>
               <Button
                 variant="ghost"
                 size="icon"
@@ -170,7 +170,8 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
                 <span className="sr-only">Refresh usage</span>
               </Button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">REST</p>
               <Progress
                 value={
                   restLimit !== null && restUsed !== null ? restProgress : 0
@@ -178,29 +179,49 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
                 indicatorColor={getBarColor(restProgress)}
                 backgroundColor="bg-secondary"
               />
-              <p className="text-sm text-muted-foreground mt-1">
-                {loading
-                  ? "Checking..."
-                  : restLimit !== null &&
-                      restUsed !== null &&
-                      restReset !== null
-                    ? `${restUsed} / ${restLimit}, resets ${restTimeLeft}`
-                    : "No token data"}
+              <p className="text-sm text-muted-foreground flex justify-between">
+                <span>
+                  {loading
+                    ? "- / - reqs"
+                    : restLimit !== null &&
+                        restUsed !== null &&
+                        restReset !== null
+                      ? `${restUsed} / ${restLimit} reqs`
+                      : "- / - reqs"}
+                </span>
+                <span>
+                  {loading
+                    ? "Checking"
+                    : restLimit !== null &&
+                        restUsed !== null &&
+                        restReset !== null
+                      ? `Resets ${restTimeLeft}`
+                      : "No data"}
+                </span>
               </p>
             </div>
-            <p className="text-sm font-medium">GraphQL API Usage</p>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">GraphQL</p>
               <Progress
                 value={gqlLimit !== null && gqlUsed !== null ? gqlProgress : 0}
                 indicatorColor={getBarColor(gqlProgress)}
                 backgroundColor="bg-secondary"
               />
-              <p className="text-sm text-muted-foreground mt-1">
-                {loading
-                  ? "Checking..."
-                  : gqlLimit !== null && gqlUsed !== null && gqlReset !== null
-                    ? `${gqlUsed} / ${gqlLimit}, resets ${gqlTimeLeft}`
-                    : "No token data"}
+              <p className="text-sm text-muted-foreground flex justify-between">
+                <span>
+                  {loading
+                    ? "- / - pts"
+                    : gqlLimit !== null && gqlUsed !== null && gqlReset !== null
+                      ? `${gqlUsed} / ${gqlLimit} pts`
+                      : "- / - pts"}
+                </span>{" "}
+                <span>
+                  {loading
+                    ? "Checking"
+                    : gqlLimit !== null && gqlUsed !== null && gqlReset !== null
+                      ? `Resets ${gqlTimeLeft}`
+                      : "No data"}
+                </span>
               </p>
             </div>
           </div>
