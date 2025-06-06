@@ -39,7 +39,13 @@ export const fetchStargazerPage = async (
 };
 
 export type PageInfo = {
-  status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
+  status:
+    | "pending"
+    | "scheduled"
+    | "fetched"
+    | "skipped"
+    | "predicted"
+    | "failed";
   oldest?: Date | null;
   newest?: Date | null;
 };
