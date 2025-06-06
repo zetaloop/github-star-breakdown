@@ -328,6 +328,7 @@ const GitHubStarTracker: React.FC = () => {
         const taskQueue = taskQueueRef.current;
         const repoErrors: Record<string, unknown> = {};
         const completedRepos = new Set<string>();
+        const loggedErrors = new Set<string>(); // Track which repos have had their errors logged
         userRepos.forEach((repo) => {
           const pageInfo = repoPageMap[repo.full_name];
           if (!pageInfo) return;
@@ -406,13 +407,14 @@ const GitHubStarTracker: React.FC = () => {
             completedRepos.add(repo);
             const stars = starsMap.get(repo) || [];
             const err = repoErrors[repo];
-            if (err) {
+            if (err && !loggedErrors.has(repo)) {
+              loggedErrors.add(repo);
               log(
                 "error",
                 repo,
-                `Finished with error: ${err instanceof Error ? err.message : "Unknown error"}`
+                `Finished with error: ${err instanceof Error ? err.message : "Unknown error."}`
               );
-            } else {
+            } else if (!err) {
               log("success", repo, `Finished loading ${stars.length} stars.`);
             }
           }
@@ -620,11 +622,22 @@ const GitHubStarTracker: React.FC = () => {
                   repoPages[task.page].status = "pending";
                   taskQueue.unshift(task);
                 } else {
-                  repoPages[task.page].status = "pending";
                   task.attempt = (task.attempt || 0) + 1;
                   if (task.attempt < 2) {
+                    // First attempt failed, pause and retry
+                    repoPages[task.page].status = "pending";
                     taskQueue.unshift(task);
+                    if (!pausedRef.current) {
+                      pausedRef.current = true;
+                      setIsPaused(true);
+                      log("error", task.repo, errorObj.message);
+                      toast.error("Error", { description: errorObj.message });
+                      controllersRef.current.forEach((c) => c.abort());
+                    }
+                    throw err;
                   } else {
+                    // Retry failed, skip this page and continue
+                    repoPages[task.page].status = "failed";
                     repoErrors[task.repo] = err;
                     const remaining = markRange(
                       task.repo,
@@ -637,15 +650,8 @@ const GitHubStarTracker: React.FC = () => {
                       task.repo,
                       `Failed fetching page ${task.page} on retry: ${err instanceof Error ? err.message : "Unknown."} Skipping ${remaining} pages.`
                     );
+                    // Don't pause again on retry failure, just continue
                   }
-                  if (!pausedRef.current) {
-                    pausedRef.current = true;
-                    setIsPaused(true);
-                    log("error", task.repo, errorObj.message);
-                    toast.error("Error", { description: errorObj.message });
-                    controllersRef.current.forEach((c) => c.abort());
-                  }
-                  throw err;
                 }
               } finally {
                 controllersRef.current.delete(key);
@@ -688,13 +694,14 @@ const GitHubStarTracker: React.FC = () => {
           stargazersMap.set(repo.full_name, stars);
           if (!completedRepos.has(repo.full_name)) {
             const err = repoErrors[repo.full_name];
-            if (err) {
+            if (err && !loggedErrors.has(repo.full_name)) {
+              loggedErrors.add(repo.full_name);
               log(
                 "error",
                 repo.full_name,
                 `Finished with error: ${err instanceof Error ? err.message : "Unknown error"}`
               );
-            } else {
+            } else if (!err) {
               log(
                 "success",
                 repo.full_name,
