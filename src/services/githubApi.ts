@@ -105,7 +105,7 @@ export const fetchReposGraphQL = async (
     user(login: $login) {
       repositories(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
         nodes {
-          id
+          databaseId
           name
           nameWithOwner
           description
@@ -152,7 +152,7 @@ export const fetchReposGraphQL = async (
     );
   }
   const repoNodes = (data.data.user?.repositories.nodes || []) as Array<{
-    id: string;
+    databaseId: number;
     name: string;
     nameWithOwner: string;
     description: string | null;
@@ -166,7 +166,7 @@ export const fetchReposGraphQL = async (
     owner: { login: string; avatarUrl: string };
   }>;
   const repos: GitHubRepo[] = repoNodes.map((node) => ({
-    id: parseInt(node.id, 10),
+    id: node.databaseId,
     name: node.name,
     full_name: node.nameWithOwner,
     description: node.description,
