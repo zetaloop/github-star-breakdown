@@ -28,8 +28,6 @@ export const clearGitHubToken = (): void => {
   localStorage.removeItem("github_token");
 };
 
-const firstPagePool = new ConcurrencyPool(50);
-
 export const fetchUserRepos = async (
   username: string,
   onProgress?: (processedDelta: number, totalPages?: number) => void
@@ -120,66 +118,6 @@ export const fetchUserRepos = async (
     if (arr) allRepos.push(...arr);
   }
   return allRepos;
-};
-
-export const fetchRepoStargazersFirstPage = (
-  repoFullName: string
-): Promise<{
-  stargazers: GitHubStargazer[];
-  incomplete: boolean;
-  lastPage?: number;
-}> => {
-  return new Promise((resolve, reject) => {
-    firstPagePool.add(async () => {
-      try {
-        const token = getGitHubToken();
-        if (!token) {
-          throw new Error("GitHub token required for stargazers");
-        }
-        const headers = {
-          Authorization: `token ${token}`,
-          Accept: "application/vnd.github.star+json",
-        };
-        const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=1`;
-        const response = await fetch(url, { headers });
-        if (!response.ok) {
-          if (response.status === 403) {
-            const reset = response.headers.get("X-RateLimit-Reset");
-            const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-            let message = `GitHub API rate limit exceeded fetching first page for ${repoFullName}.`;
-            if (resetTimestamp) {
-              message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-            }
-            reject(new RateLimitError(message, resetTimestamp));
-            return;
-          }
-          reject(
-            new Error(
-              `GitHub API Error fetching first page for ${repoFullName}: ${response.status} - ${response.statusText}`
-            )
-          );
-          return;
-        }
-        const linkHeader = response.headers.get("Link");
-        let lastPage: number | undefined = undefined;
-        if (linkHeader) {
-          const links = linkHeader.split(",");
-          const lastPageLink = links.find((link) =>
-            link.includes('rel="last"')
-          );
-          if (lastPageLink) {
-            const match = lastPageLink.match(/[?&]page=(\d+)/);
-            if (match) lastPage = parseInt(match[1], 10);
-          }
-        }
-        const firstPageData: GitHubStargazer[] = await response.json();
-        const moreData = firstPageData.length === 100;
-        resolve({ stargazers: firstPageData, incomplete: moreData, lastPage });
-      } catch (err) {
-        reject(err);
-      }
-    });
-  });
 };
 
 // Parallel binary search and fetch for stargazers in a given date range, with concurrency pool and skip logic

@@ -1,7 +1,49 @@
 import { GitHubStargazer } from "@/types/github";
 import { getGitHubToken, RateLimitError } from "./github";
 import { ConcurrencyPool } from "./concurrency";
+export const fetchStargazerPage = async (
+  repoFullName: string,
+  page: number
+) => {
+  const token = getGitHubToken();
+  if (!token) throw new Error("GitHub token is required");
+  const headers = {
+    Authorization: `token ${token}`,
+    Accept: "application/vnd.github.star+json",
+  };
 
+  const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=${page}`;
+  const resp = await fetch(url, { headers });
+  if (!resp.ok) {
+    if (resp.status === 403) {
+      const reset = resp.headers.get("X-RateLimit-Reset");
+      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
+      let message = `GitHub API rate limit exceeded at page ${page} for ${repoFullName}.`;
+      if (resetTimestamp) {
+        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
+      }
+      throw new RateLimitError(message, resetTimestamp);
+    }
+    throw new Error(
+      `Error fetching page ${page} for ${repoFullName}: ${resp.status} - ${resp.statusText}`
+    );
+  }
+  const stars: GitHubStargazer[] = await resp.json();
+  if (stars.length === 0) {
+    return { stars, oldest: null, newest: null };
+  }
+  const oldest = new Date(stars[0].starred_at);
+  const newest = new Date(stars[stars.length - 1].starred_at);
+  return { stars, oldest, newest };
+};
+
+export type PageInfo = {
+  status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
+  oldest?: Date | null;
+  newest?: Date | null;
+};
+
+// Legacy function kept for reference (unused in new global scheduler)
 export const fetchStargazersInRange = async (
   repoFullName: string,
   startPage: number,
@@ -12,102 +54,112 @@ export const fetchStargazersInRange = async (
   since?: Date,
   until?: Date
 ) => {
-  const token = getGitHubToken();
-  if (!token) throw new Error("GitHub token is required");
-  const headers = {
-    Authorization: `token ${token}`,
-    Accept: "application/vnd.github.star+json",
+  const fetchPage = (page: number) => fetchStargazerPage(repoFullName, page);
+
+  const pages: Record<number, PageInfo> = {};
+  for (let p = startPage; p <= endPage; p++) {
+    pages[p] = { status: "pending" };
+  }
+
+  const taskQueue: Array<{ page: number; start: number; end: number }> = [];
+
+  const sameDay = (a: Date | null | undefined, b: Date | null | undefined) => {
+    return (
+      a && b && a.toISOString().split("T")[0] === b.toISOString().split("T")[0]
+    );
   };
-  const fetchPage = async (page: number) => {
-    const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=${page}`;
-    const resp = await fetch(url, { headers });
-    if (!resp.ok) {
-      if (resp.status === 403) {
-        const reset = resp.headers.get("X-RateLimit-Reset");
-        const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-        let message = `GitHub API rate limit exceeded at page ${page} for ${repoFullName}.`;
-        if (resetTimestamp) {
-          message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-        }
-        throw new RateLimitError(message, resetTimestamp);
+
+  const markRange = (s: number, e: number) => {
+    for (let p = s; p <= e; p++) {
+      if (pages[p] && pages[p].status === "pending") {
+        pages[p].status = "predicted";
+        onProgress();
+      } else if (pages[p] && pages[p].status === "scheduled") {
+        pages[p].status = "predicted";
       }
-      throw new Error(
-        `Error fetching page ${page} for ${repoFullName}: ${resp.status} - ${resp.statusText}`
-      );
     }
-    const stars: GitHubStargazer[] = await resp.json();
-    if (stars.length === 0) {
-      return { stars, pageNewest: null, pageOldest: null };
-    }
-    const pageOldest = new Date(stars[0].starred_at);
-    const pageNewest = new Date(stars[stars.length - 1].starred_at);
-    return { stars, pageNewest, pageOldest };
   };
 
-  const scheduled = new Set<number>();
-  const fetchedPages: number[] = [];
-  const skippedPages: number[] = [];
-  const predictedPages: number[] = [];
+  const findPrevFetched = (p: number) => {
+    for (let i = p - 1; i >= startPage; i--) {
+      if (pages[i] && pages[i].status === "fetched") return i;
+    }
+    return null;
+  };
 
-  const recur = (s: number, e: number): void => {
+  const findNextFetched = (p: number) => {
+    for (let i = p + 1; i <= endPage; i++) {
+      if (pages[i] && pages[i].status === "fetched") return i;
+    }
+    return null;
+  };
+
+  const enqueueRange = (s: number, e: number) => {
     if (s > e) return;
     const mid = Math.floor((s + e) / 2);
-    if (scheduled.has(mid)) {
-      recur(s, mid - 1);
-      recur(mid + 1, e);
-      return;
+    if (pages[mid].status !== "pending") return;
+    taskQueue.push({ page: mid, start: s, end: e });
+  };
+
+  const pump = () => {
+    while (
+      taskQueue.length > 0 &&
+      pool.getActiveCount() + pool.getQueueLength() < pool.getLimit()
+    ) {
+      const task = taskQueue.shift()!;
+      if (pages[task.page].status !== "pending") continue;
+      pages[task.page].status = "scheduled";
+      pool.add(async () => {
+        if (pages[task.page].status !== "scheduled") {
+          return;
+        }
+        const { stars, oldest, newest } = await fetchPage(task.page);
+        onProgress();
+        if (!stars.length) {
+          pages[task.page].status = "skipped";
+        } else if (until && oldest && oldest > until) {
+          pages[task.page].status = "skipped";
+          markRange(task.page + 1, task.end);
+          enqueueRange(task.start, task.page - 1);
+        } else if (since && newest && newest < since) {
+          pages[task.page].status = "skipped";
+          markRange(task.start, task.page - 1);
+          enqueueRange(task.page + 1, task.end);
+        } else {
+          pages[task.page] = { status: "fetched", oldest, newest };
+          saveStars(stars);
+          const prev = findPrevFetched(task.page);
+          if (prev !== null && sameDay(pages[prev].newest, oldest)) {
+            markRange(prev + 1, task.page - 1);
+          }
+          const next = findNextFetched(task.page);
+          if (next !== null && sameDay(newest, pages[next].oldest)) {
+            markRange(task.page + 1, next - 1);
+          }
+          enqueueRange(task.start, task.page - 1);
+          enqueueRange(task.page + 1, task.end);
+        }
+        pump();
+      });
     }
-    scheduled.add(mid);
-    pool.add(async () => {
-      const { stars, pageNewest, pageOldest } = await fetchPage(mid);
-      onProgress();
-      if (!stars.length || !pageNewest || !pageOldest) {
-        skippedPages.push(mid);
-        return;
-      }
-
-      if (until && pageOldest > until) {
-        const skipped = e - mid;
-        if (skipped > 0) {
-          onProgress(skipped);
-          for (let p = mid + 1; p <= e; p++) predictedPages.push(p);
-        }
-        skippedPages.push(mid);
-        recur(s, mid - 1);
-        return;
-      }
-
-      if (since && pageNewest < since) {
-        const skipped = mid - s;
-        if (skipped > 0) {
-          onProgress(skipped);
-          for (let p = s; p < mid; p++) predictedPages.push(p);
-        }
-        skippedPages.push(mid);
-        recur(mid + 1, e);
-        return;
-      }
-
-      fetchedPages.push(mid);
-      saveStars(stars);
-      recur(s, mid - 1);
-      recur(mid + 1, e);
-    });
   };
 
   const totalPages = endPage - startPage + 1;
-  const step = Math.max(1, Math.floor(totalPages / 50));
-  for (let p = startPage; p <= endPage; p += step) {
-    recur(p, p);
+  if (totalPages <= 3) {
+    for (let p = startPage; p <= endPage; p++) {
+      taskQueue.push({ page: p, start: startPage, end: endPage });
+    }
+  } else {
+    const q1 = startPage + Math.floor(totalPages * 0.25);
+    const q2 = startPage + Math.floor(totalPages * 0.5);
+    const q3 = startPage + Math.floor(totalPages * 0.75);
+    for (const p of [q1, q2, q3]) {
+      if (p >= startPage && p <= endPage) {
+        taskQueue.push({ page: p, start: startPage, end: endPage });
+      }
+    }
   }
-  recur(startPage, endPage);
-  await pool.awaitAll();
 
-  if (fetchedPages.length + skippedPages.length + predictedPages.length > 0) {
-    console.log(`Repo ${repoFullName} fetch summary`, {
-      fetched: fetchedPages.sort((a, b) => a - b),
-      skipped: skippedPages.sort((a, b) => a - b),
-      predicted: predictedPages.sort((a, b) => a - b),
-    });
-  }
+  pump();
+  await pool.awaitAll();
 };

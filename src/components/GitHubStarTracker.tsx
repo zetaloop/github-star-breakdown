@@ -15,11 +15,12 @@ import {
   processRepoStarHistory,
   getGitHubToken,
   clearGitHubToken,
-  fetchRepoStargazersFirstPage,
   RateLimitError,
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { ConcurrencyPool } from "@/services/concurrency";
+import { fetchStargazerPage } from "@/services/githubHeavy";
 
 type LoadingStage = 0 | 1 | 2 | null;
 
@@ -131,172 +132,266 @@ const GitHubStarTracker: React.FC = () => {
         }
 
         setRepos(userRepos);
-        // Limit concurrent requests to avoid hitting rate limits
-        setCurrentStage(1);
-        setTotalItemsToProcess(userRepos.length);
+
+        setCurrentStage(2);
+        const stargazersMap = new Map<string, GitHubStargazer[]>();
+        let totalPagesToProcess = 0;
+        const repoPageMap: Record<string, { start: number; end: number }> = {};
+        for (const repo of userRepos) {
+          const totalStars =
+            typeof repo.stargazers_count === "number"
+              ? repo.stargazers_count
+              : 0;
+          if (totalStars === 0) continue;
+          const endPage = Math.ceil(totalStars / 100);
+          let startPage = 1;
+          if (
+            (timeRangeInput === "year" || timeRangeInput === "custom") &&
+            sinceDateForRange
+          ) {
+            const repoCreated = new Date(repo.created_at);
+            const repoAgeDays =
+              (now.getTime() - repoCreated.getTime()) / 86_400_000;
+            const rangeDays =
+              (untilDateForRange.getTime() - sinceDateForRange.getTime()) /
+              86_400_000;
+            const fraction =
+              repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
+            if (fraction < 1) {
+              const estimatedStarsInRange = Math.ceil(totalStars * fraction);
+              const pagesInRange = Math.ceil(estimatedStarsInRange / 100);
+              startPage = Math.max(1, endPage - pagesInRange + 1);
+            }
+          }
+          totalPagesToProcess += endPage - startPage + 1;
+          repoPageMap[repo.full_name] = { start: startPage, end: endPage };
+        }
+        if (totalPagesToProcess === 0 && userRepos.length > 0) {
+          totalPagesToProcess = userRepos.length;
+        }
+        setTotalItemsToProcess(totalPagesToProcess);
         setProcessedItemsCount(0);
         setLoadingLog((prev) => [
           ...prev,
           {
-            name: "Stage 1",
-            status: `📊 Starting initial scan of ${userRepos.length} repos...`,
+            name: "Stage 2",
+            status: `📗 Starting deep scan of ${userRepos.length} repos (${totalPagesToProcess} estimated pages)`,
           },
         ]);
         toast.info(
-          `Fetching first page of stars for ${userRepos.length} repositories...`
+          `Fetching stargazers for ${userRepos.length} repositories...`
         );
 
-        const incompleteRepos: GitHubRepo[] = [];
-        const stargazersMap = new Map<string, GitHubStargazer[]>();
-        const lastPageMap: Record<string, number> = {};
+        const pool = new ConcurrencyPool(50);
 
-        await Promise.all(
-          userRepos.map(async (repo) => {
-            let statusMsg = "";
-            try {
-              const {
-                stargazers: firstPageStars,
-                incomplete,
-                lastPage,
-              } = await fetchRepoStargazersFirstPage(repo.full_name);
+        type PageInfo = {
+          status: "pending" | "scheduled" | "fetched" | "skipped" | "predicted";
+          oldest?: Date | null;
+          newest?: Date | null;
+        };
 
-              stargazersMap.set(repo.full_name, firstPageStars);
-              if (lastPage) {
-                lastPageMap[repo.full_name] = lastPage;
-              }
+        type Task = { repo: string; page: number; start: number; end: number };
+        const pagesMap = new Map<string, Record<number, PageInfo>>();
+        const taskQueue: Task[] = [];
+        const repoErrors: Record<string, unknown> = {};
+        userRepos.forEach((repo) => {
+          const pageInfo = repoPageMap[repo.full_name];
+          if (!pageInfo) return;
+          const pages: Record<number, PageInfo> = {};
+          for (let p = pageInfo.start; p <= pageInfo.end; p++) {
+            pages[p] = { status: "pending" };
+          }
+          pagesMap.set(repo.full_name, pages);
+        });
 
-              if (!incomplete) {
-                statusMsg = `✅ Fetched ${firstPageStars.length} stars (complete)`;
-              } else {
-                statusMsg = `🔄 Fetched ${firstPageStars.length} stars... more pages pending`;
-                incompleteRepos.push(repo);
-              }
-            } catch (err) {
-              console.error(
-                `Error fetching first page for ${repo.full_name}:`,
-                err
-              );
-              statusMsg = `❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`;
-            } finally {
-              setProcessedItemsCount((prev) => prev + 1);
-              setLoadingLog((prev) => [
-                ...prev,
-                { name: repo.full_name, status: statusMsg },
-              ]);
-            }
-          })
-        );
+        const starsMap = new Map<string, GitHubStargazer[]>();
+        userRepos.forEach((r) => starsMap.set(r.full_name, []));
 
-        if (incompleteRepos.length > 0) {
-          setCurrentStage(2);
-          toast.info(
-            `Optimizing load for ${incompleteRepos.length} large repositories...`
-          );
-
-          let totalPagesToProcessForStage2 = 0;
-          const repoPageMap: Record<string, { start: number; end: number }> =
-            {};
-          for (const repo of incompleteRepos) {
-            const firstPageStarsCount =
-              stargazersMap.get(repo.full_name)?.length || 0;
-            const totalStars =
-              typeof repo.stargazers_count === "number"
-                ? repo.stargazers_count
-                : 0;
-            if (totalStars > firstPageStarsCount) {
-              const endPage =
-                lastPageMap[repo.full_name] || Math.ceil(totalStars / 100);
-              let startPage = 2;
-
-              if (
-                (timeRangeInput === "year" || timeRangeInput === "custom") &&
-                sinceDateForRange
-              ) {
-                const repoCreated = new Date(repo.created_at);
-                const repoAgeDays =
-                  (now.getTime() - repoCreated.getTime()) / 86_400_000;
-                const rangeDays =
-                  (untilDateForRange.getTime() - sinceDateForRange.getTime()) /
-                  86_400_000;
-                const fraction =
-                  repoAgeDays > 0 ? Math.min(1, rangeDays / repoAgeDays) : 1;
-                const estimatedStarsInRange = Math.ceil(totalStars * fraction);
-                const pagesInRange = Math.ceil(estimatedStarsInRange / 100);
-                startPage = Math.max(2, endPage - pagesInRange + 1);
-              }
-
-              totalPagesToProcessForStage2 += endPage - startPage + 1;
-              repoPageMap[repo.full_name] = { start: startPage, end: endPage };
+        const initialByRepo: Record<string, number[]> = {};
+        userRepos.forEach((repo) => {
+          const { start, end } = repoPageMap[repo.full_name];
+          const total = end - start + 1;
+          const list: number[] = [];
+          if (total <= 3) {
+            for (let p = start; p <= end; p++) list.push(p);
+          } else {
+            const q1 = start + Math.floor((total - 1) * 0.25);
+            const q2 = start + Math.floor((total - 1) * 0.5);
+            const q3 = start + Math.floor((total - 1) * 0.75);
+            for (const p of [q1, q2, q3]) {
+              if (p >= start && p <= end && !list.includes(p)) list.push(p);
             }
           }
-          if (
-            totalPagesToProcessForStage2 === 0 &&
-            incompleteRepos.length > 0
+          initialByRepo[repo.full_name] = list;
+        });
+
+        const repoNames = userRepos.map((r) => r.full_name);
+        const maxLen = Math.max(
+          ...repoNames.map((n) => initialByRepo[n].length)
+        );
+        for (let i = 0; i < maxLen; i++) {
+          for (const name of repoNames) {
+            const p = initialByRepo[name][i];
+            if (p !== undefined) {
+              const bounds = repoPageMap[name];
+              taskQueue.push({
+                repo: name,
+                page: p,
+                start: bounds.start,
+                end: bounds.end,
+              });
+            }
+          }
+        }
+
+        const sameDay = (
+          a: Date | null | undefined,
+          b: Date | null | undefined
+        ) => {
+          return (
+            a &&
+            b &&
+            a.toISOString().split("T")[0] === b.toISOString().split("T")[0]
+          );
+        };
+
+        const markRange = (repo: string, s: number, e: number) => {
+          const pages = pagesMap.get(repo);
+          if (!pages) return 0;
+          let count = 0;
+          for (let p = s; p <= e; p++) {
+            const info = pages[p];
+            if (!info) continue;
+            if (info.status === "pending") {
+              info.status = "predicted";
+              count++;
+            } else if (info.status === "scheduled") {
+              info.status = "predicted";
+            }
+          }
+          if (count) setProcessedItemsCount((prev) => prev + count);
+          return count;
+        };
+
+        const findPrevFetched = (repo: string, p: number, start: number) => {
+          const pages = pagesMap.get(repo);
+          if (!pages) return null;
+          for (let i = p - 1; i >= start; i--) {
+            if (pages[i] && pages[i].status === "fetched") return i;
+          }
+          return null;
+        };
+
+        const findNextFetched = (repo: string, p: number, end: number) => {
+          const pages = pagesMap.get(repo);
+          if (!pages) return null;
+          for (let i = p + 1; i <= end; i++) {
+            if (pages[i] && pages[i].status === "fetched") return i;
+          }
+          return null;
+        };
+
+        const enqueueRange = (repo: string, s: number, e: number) => {
+          if (s > e) return;
+          const mid = Math.floor((s + e) / 2);
+          const repoPages = pagesMap.get(repo);
+          if (!repoPages) return;
+          if (repoPages[mid].status !== "pending") return;
+          taskQueue.push({ repo, page: mid, start: s, end: e });
+        };
+
+        const pump = () => {
+          while (
+            taskQueue.length > 0 &&
+            pool.getActiveCount() + pool.getQueueLength() < pool.getLimit()
           ) {
-            totalPagesToProcessForStage2 = incompleteRepos.length;
-          }
-          setTotalItemsToProcess(totalPagesToProcessForStage2);
-          setProcessedItemsCount(0);
-          setLoadingLog((prev) => [
-            ...prev,
-            {
-              name: "Stage 2",
-              status: `📗 Starting deep scan of ${incompleteRepos.length} repos (${totalPagesToProcessForStage2} estimated pages)`,
-            },
-          ]);
-
-          const { ConcurrencyPool } = await import("@/services/concurrency");
-          const { fetchStargazersInRange } = await import(
-            "@/services/githubHeavy"
-          );
-          const pool = new ConcurrencyPool(50);
-          const promises: Promise<void>[] = [];
-          for (const repo of incompleteRepos) {
-            const pageInfo = repoPageMap[repo.full_name];
-            if (!pageInfo) continue;
-            const stars: GitHubStargazer[] = [];
-            promises.push(
-              (async () => {
-                try {
-                  await fetchStargazersInRange(
-                    repo.full_name,
-                    pageInfo.start,
-                    pageInfo.end,
-                    pool,
-                    (delta = 1) => {
-                      setProcessedItemsCount((prev) => prev + delta);
-                    },
-                    (pageStars) => {
-                      stars.push(...pageStars);
-                    },
-                    sinceDateForRange,
-                    untilDateForRange
+            const task = taskQueue.shift()!;
+            const repoPages = pagesMap.get(task.repo)!;
+            if (repoPages[task.page].status !== "pending") continue;
+            repoPages[task.page].status = "scheduled";
+            pool.add(async () => {
+              if (repoPages[task.page].status !== "scheduled") return;
+              try {
+                const { stars, oldest, newest } = await fetchStargazerPage(
+                  task.repo,
+                  task.page
+                );
+                setProcessedItemsCount((prev) => prev + 1);
+                if (!stars.length) {
+                  repoPages[task.page].status = "skipped";
+                } else if (
+                  untilDateForRange &&
+                  oldest &&
+                  oldest > untilDateForRange
+                ) {
+                  repoPages[task.page].status = "skipped";
+                  markRange(task.repo, task.page + 1, task.end);
+                  enqueueRange(task.repo, task.start, task.page - 1);
+                } else if (
+                  sinceDateForRange &&
+                  newest &&
+                  newest < sinceDateForRange
+                ) {
+                  repoPages[task.page].status = "skipped";
+                  markRange(task.repo, task.start, task.page - 1);
+                  enqueueRange(task.repo, task.page + 1, task.end);
+                } else {
+                  repoPages[task.page] = { status: "fetched", oldest, newest };
+                  starsMap.get(task.repo)!.push(...stars);
+                  const prev = findPrevFetched(
+                    task.repo,
+                    task.page,
+                    task.start
                   );
-                  const currentStars = stargazersMap.get(repo.full_name) || [];
-                  stargazersMap.set(repo.full_name, [
-                    ...currentStars,
-                    ...stars,
-                  ]);
-                  setLoadingLog((prev) => [
-                    ...prev,
-                    {
-                      name: repo.full_name,
-                      status: `✅ Full data loaded (${(currentStars?.length || 0) + stars.length} stars)`,
-                    },
-                  ]);
-                } catch (err) {
-                  setLoadingLog((prev) => [
-                    ...prev,
-                    {
-                      name: repo.full_name,
-                      status: `❌ Error loading remaining pages: ${err instanceof Error ? err.message : "Unknown error"}`,
-                    },
-                  ]);
+                  if (
+                    prev !== null &&
+                    sameDay(repoPages[prev].newest, oldest)
+                  ) {
+                    markRange(task.repo, prev + 1, task.page - 1);
+                  }
+                  const next = findNextFetched(task.repo, task.page, task.end);
+                  if (
+                    next !== null &&
+                    sameDay(newest, repoPages[next].oldest)
+                  ) {
+                    markRange(task.repo, task.page + 1, next - 1);
+                  }
+                  enqueueRange(task.repo, task.start, task.page - 1);
+                  enqueueRange(task.repo, task.page + 1, task.end);
                 }
-              })()
-            );
+              } catch (err) {
+                repoErrors[task.repo] = err;
+                markRange(task.repo, task.start, task.end);
+              }
+              pump();
+            });
           }
-          await Promise.all(promises);
+        };
+
+        pump();
+        await pool.awaitAll();
+
+        for (const repo of userRepos) {
+          const stars = starsMap.get(repo.full_name) || [];
+          stargazersMap.set(repo.full_name, stars);
+          const err = repoErrors[repo.full_name];
+          if (err) {
+            setLoadingLog((prev) => [
+              ...prev,
+              {
+                name: repo.full_name,
+                status: `❌ Error loading pages: ${err instanceof Error ? err.message : "Unknown error"}`,
+              },
+            ]);
+          } else {
+            setLoadingLog((prev) => [
+              ...prev,
+              {
+                name: repo.full_name,
+                status: `✅ Full data loaded (${stars.length} stars)`,
+              },
+            ]);
+          }
         }
 
         const processedStarHistory = processRepoStarHistory(
