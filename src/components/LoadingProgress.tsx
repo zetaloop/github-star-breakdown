@@ -27,23 +27,25 @@ interface LoadingProgressProps {
   workerStatuses: WorkerStatus[];
 }
 
+const iconMap = {
+  success: { icon: CheckCircle2, className: "text-green-500" },
+  warning: { icon: CircleHelp, className: "text-yellow-500" },
+  error: { icon: XCircle, className: "text-red-500" },
+  info: { icon: Info, className: "text-blue-500" },
+  stage: { icon: ChevronsRight, className: "text-gray-500" },
+  debug: { icon: CircleEllipsis, className: "text-purple-500" },
+} as const;
+
 const LogIcon = ({ type }: { type: LogEntry["type"] }) => {
-  switch (type) {
-    case "success":
-      return <CheckCircle2 className="h-3 w-3 text-green-500" />;
-    case "warning":
-      return <CircleHelp className="h-3 w-3 text-yellow-500" />;
-    case "error":
-      return <XCircle className="h-3 w-3 text-red-500" />;
-    case "info":
-      return <Info className="h-3 w-3 text-blue-500" />;
-    case "stage":
-      return <ChevronsRight className="h-3 w-3 text-gray-500" />;
-    case "debug":
-      return <CircleEllipsis className="h-3 w-3 text-purple-500" />;
-    default:
-      return null;
-  }
+  const entry = iconMap[type];
+  if (!entry) return null;
+  const IconComp = entry.icon;
+  return (
+    <span className="relative select-text inline-flex">
+      <IconComp className={cn("h-3 w-3", entry.className)} />
+      <span className="copy-hidden">{type.toUpperCase()}</span>
+    </span>
+  );
 };
 
 const LoadingProgress: React.FC<LoadingProgressProps> = ({
@@ -167,49 +169,45 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
               key={index}
               className="flex items-start text-xs font-mono whitespace-pre-wrap break-words"
             >
-              <div className="flex items-center w-[105px] flex-shrink-0">
+              <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
                 <span className="text-gray-500 mr-2">
-                  {entry.timestamp.toLocaleTimeString()}
+                  {entry.timestamp.toLocaleTimeString()}{" "}
                 </span>
                 <LogIcon type={entry.type} />
-              </div>
-              <p>
-                <span
-                  className={cn("font-semibold mr-1.5", {
-                    "text-blue-500": entry.type === "info",
-                    "text-green-500": entry.type === "success",
-                    "text-yellow-500": entry.type === "warning",
-                    "text-red-500": entry.type === "error",
-                    "text-gray-500": entry.type === "debug",
-                  })}
-                >
-                  [{entry.source}]
-                </span>
-                <span>{entry.message}</span>
-              </p>
+              </span>
+              <span
+                className={cn("font-semibold mr-1.5", {
+                  "text-blue-500": entry.type === "info",
+                  "text-green-500": entry.type === "success",
+                  "text-yellow-500": entry.type === "warning",
+                  "text-red-500": entry.type === "error",
+                  "text-gray-500": entry.type === "debug",
+                })}
+              >
+                [{entry.source}]
+              </span>
+              <span>{entry.message}</span>
             </div>
           ))}
           {latestEntry && (
             <div className="flex items-start text-xs font-mono whitespace-pre-wrap break-words">
-              <div className="flex items-center w-[105px] flex-shrink-0">
+              <span className="inline-flex items-center w-[105px] flex-shrink-0 mr-1">
                 <span className="text-gray-500 mr-2">
-                  {latestEntry.timestamp.toLocaleTimeString()}
+                  {latestEntry.timestamp.toLocaleTimeString()}{" "}
                 </span>
                 <LogIcon type={latestEntry.type} />
-              </div>
-              <p>
-                <span
-                  className={cn("font-semibold mr-1.5", {
-                    "text-blue-500": latestEntry.type === "info",
-                    "text-green-500": latestEntry.type === "success",
-                    "text-red-500": latestEntry.type === "error",
-                    "text-gray-500": latestEntry.type === "debug",
-                  })}
-                >
-                  [{latestEntry.source}]
-                </span>
-                <span>{latestEntry.message}</span>
-              </p>
+              </span>
+              <span
+                className={cn("font-semibold mr-1.5", {
+                  "text-blue-500": latestEntry.type === "info",
+                  "text-green-500": latestEntry.type === "success",
+                  "text-red-500": latestEntry.type === "error",
+                  "text-gray-500": latestEntry.type === "debug",
+                })}
+              >
+                [{latestEntry.source}]
+              </span>
+              <span>{latestEntry.message}</span>
             </div>
           )}
           {log.length === 0 && !latestEntry && (
