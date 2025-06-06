@@ -161,6 +161,34 @@ const GitHubStarTracker: React.FC = () => {
       timeRangeInput: "year" | "all" | "custom",
       customRange?: { from?: Date; to?: Date }
     ) => {
+      const formatFinishedLoadingMessage = (
+        repo: string,
+        totalStarsInRepo: number,
+        fetchedStars: number,
+        pageStats: { status: string }[]
+      ): string => {
+        const fetched = pageStats.filter((p) => p.status === "fetched").length;
+        const failed = pageStats.filter((p) => p.status === "failed").length;
+        const skipped = pageStats.filter((p) => p.status === "skipped").length;
+        const predicted = pageStats.filter(
+          (p) => p.status === "predicted"
+        ).length;
+
+        // Calculate total pages and unrecorded pages
+        const totalPages = Math.ceil(totalStarsInRepo / 100);
+        const accountedPages = fetched + failed + skipped + predicted;
+        const unrecorded = Math.max(0, totalPages - accountedPages);
+
+        const parts: string[] = [`total ${totalPages} pages`];
+        if (fetched > 0) parts.push(`${fetched} fetched`);
+        if (failed > 0) parts.push(`${failed} failed`);
+        if (skipped > 0) parts.push(`${skipped} skipped`);
+        if (predicted > 0) parts.push(`${predicted} predicted`);
+        if (unrecorded > 0) parts.push(`${unrecorded} unrecorded`);
+
+        return `Finished loading ${fetchedStars} stars (${parts.join(", ")})`;
+      };
+
       setIsLoading(true);
       stopRef.current = false;
       pausedRef.current = false;
@@ -407,23 +435,18 @@ const GitHubStarTracker: React.FC = () => {
             completedRepos.add(repo);
             const stars = starsMap.get(repo) || [];
             const pageStats = Object.values(pages);
-            const fetchedCount = pageStats.filter(
-              (p) => p.status === "fetched"
-            ).length;
-            const failedCount = pageStats.filter(
-              (p) => p.status === "failed"
-            ).length;
-            const skippedCount = pageStats.filter(
-              (p) => p.status === "skipped"
-            ).length;
-            const predictedCount = pageStats.filter(
-              (p) => p.status === "predicted"
-            ).length;
+            const repoInfo = userRepos.find((r) => r.full_name === repo);
+            const totalStarsInRepo = repoInfo?.stargazers_count || 0;
 
             log(
               "success",
               repo,
-              `Finished loading ${stars.length} stars from ${fetchedCount} pages (${failedCount} failed, ${skippedCount} skipped, ${predictedCount} predicted)`
+              formatFinishedLoadingMessage(
+                repo,
+                totalStarsInRepo,
+                stars.length,
+                pageStats
+              )
             );
           }
         };
@@ -720,22 +743,15 @@ const GitHubStarTracker: React.FC = () => {
             const pages = pagesMap.get(repo.full_name);
             if (pages) {
               const pageStats = Object.values(pages);
-              const fetchedCount = pageStats.filter(
-                (p) => p.status === "fetched"
-              ).length;
-              const failedCount = pageStats.filter(
-                (p) => p.status === "failed"
-              ).length;
-              const skippedCount = pageStats.filter(
-                (p) => p.status === "skipped"
-              ).length;
-              const predictedCount = pageStats.filter(
-                (p) => p.status === "predicted"
-              ).length;
               log(
                 "success",
                 repo.full_name,
-                `Finished loading ${stars.length} stars from ${fetchedCount} pages (${failedCount} failed, ${skippedCount} skipped, ${predictedCount} predicted)`
+                formatFinishedLoadingMessage(
+                  repo.full_name,
+                  repo.stargazers_count,
+                  stars.length,
+                  pageStats
+                )
               );
             } else {
               log(
