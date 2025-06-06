@@ -663,6 +663,22 @@ const GitHubStarTracker: React.FC = () => {
           pumpRef.current();
         }
 
+        // In case any pages remain pending due to unforeseen errors, mark them
+        // as predicted so the progress bar reaches completion.
+        let leftover = 0;
+        pagesMap.forEach((pages) => {
+          Object.values(pages).forEach((info) => {
+            if (info.status === "pending" || info.status === "scheduled") {
+              info.status = "predicted";
+              leftover++;
+            }
+          });
+        });
+        if (leftover > 0) {
+          setProcessedItemsCount((p) => p + leftover);
+          setPredictedItemsCount((p) => p + leftover);
+        }
+
         log("stage", "App", "Processing final data.");
         for (const repo of userRepos) {
           const stars = starsMap.get(repo.full_name) || [];
