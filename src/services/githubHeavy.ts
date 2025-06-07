@@ -82,6 +82,22 @@ export const fetchStargazerPage = async (
   return pCache.get(page)!;
 };
 
+export const fetchAllStargazersGraphQL = async (
+  repoFullName: string,
+  onPage: (stars: GitHubStargazer[], page: number) => void,
+  signal?: AbortSignal
+) => {
+  let after: string | undefined = undefined;
+  let page = 1;
+  while (true) {
+    const res = await fetchStargazersGraphQL(repoFullName, after, signal);
+    onPage(res.stars, page);
+    if (!res.hasNextPage) break;
+    after = res.endCursor || undefined;
+    page++;
+  }
+};
+
 export type PageInfo = {
   status:
     | "pending"

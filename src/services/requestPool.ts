@@ -1,5 +1,7 @@
 import { ConcurrencyPool } from "./concurrency";
 
-const sharedPool = new ConcurrencyPool(50);
+const restPool = new ConcurrencyPool(50);
+const graphqlPool = new ConcurrencyPool(50);
 
-export const getRequestPool = () => sharedPool;
+export const getRestPool = () => restPool;
+export const getGraphqlPool = () => graphqlPool;

@@ -14,7 +14,10 @@ import {
   clearGitHubToken,
   setGitHubToken,
   verifyGitHubToken,
+  isGraphQLEnabled,
+  setGraphQLEnabled,
 } from "@/services/github";
+import { Switch } from "@/components/ui/switch";
 import { formatDistanceStrict, differenceInSeconds } from "date-fns";
 import { toast } from "sonner";
 
@@ -42,6 +45,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
   const [gqlUsed, setGqlUsed] = useState<number | null>(null);
   const [gqlReset, setGqlReset] = useState<number | null>(null);
   const [gqlTimeLeft, setGqlTimeLeft] = useState<string>("");
+  const [gqlEnabled, setGqlEnabled] = useState<boolean>(isGraphQLEnabled());
 
   const fetchAndSetData = useCallback(async () => {
     setLoading(true);
@@ -237,6 +241,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
                 value={gqlLimit !== null && gqlUsed !== null ? gqlProgress : 0}
                 indicatorColor={getBarColor(gqlProgress)}
                 backgroundColor="bg-secondary"
+                className={gqlEnabled ? "" : "grayscale"}
               />
               <p className="text-sm text-muted-foreground flex justify-between">
                 <span>
@@ -254,6 +259,19 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
                       : "No data"}
                 </span>
               </p>
+              <div className="flex items-center space-x-2 pt-1">
+                <Switch
+                  id="gql-toggle"
+                  checked={gqlEnabled}
+                  onCheckedChange={(v) => {
+                    setGqlEnabled(v);
+                    setGraphQLEnabled(v);
+                  }}
+                />
+                <Label htmlFor="gql-toggle" className="text-sm">
+                  Enable GraphQL
+                </Label>
+              </div>
             </div>
           </div>
           {editing ? (

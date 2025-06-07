@@ -4,7 +4,7 @@ import {
   RepoStarHistoryItem,
 } from "@/types/github";
 import { ConcurrencyPool, WorkerStatus } from "./concurrency";
-import { getRequestPool } from "./requestPool";
+import { getRestPool } from "./requestPool";
 import { fetchReposREST, fetchReposGraphQL } from "./githubApi";
 
 type ApiMode = "rest" | "graphql";
@@ -95,44 +95,22 @@ export const clearGitHubToken = (): void => {
   localStorage.removeItem("github_token");
 };
 
+export const isGraphQLEnabled = (): boolean => {
+  const val = localStorage.getItem("github_graphql_enabled");
+  return val !== "false";
+};
+
+export const setGraphQLEnabled = (enabled: boolean): void => {
+  localStorage.setItem("github_graphql_enabled", enabled ? "true" : "false");
+};
+
 const fetchRepoPage = async (
   username: string,
   page: number,
   signal?: AbortSignal
 ): Promise<GitHubRepo[]> => {
-  const preferGraphQL = currentMode === "graphql" || !canUseRest();
-  if (!preferGraphQL) {
-    try {
-      const { repos } = await fetchReposREST(username, page, 100, signal);
-      return repos.filter((r) => r.stargazers_count > 0);
-    } catch (err) {
-      if (err instanceof RateLimitError) {
-        restReset = err.resetTimestamp || null;
-        if (canUseGraphQL()) {
-          currentMode = "graphql";
-          return fetchRepoPage(username, page, signal);
-        }
-      }
-      throw err;
-    }
-  }
-
-  try {
-    return await fetchRepoPageGraphQL(
-      username,
-      page,
-      signal || new AbortController().signal
-    );
-  } catch (err) {
-    if (err instanceof RateLimitError) {
-      graphqlReset = err.resetTimestamp || null;
-      if (canUseRest()) {
-        currentMode = "rest";
-        return fetchRepoPage(username, page, signal);
-      }
-    }
-    throw err;
-  }
+  const { repos } = await fetchReposREST(username, page, 100, signal);
+  return repos.filter((r) => r.stargazers_count > 0);
 };
 
 export const fetchUserRepos = async (
@@ -141,7 +119,7 @@ export const fetchUserRepos = async (
   onStatusChange?: (statuses: WorkerStatus[]) => void
 ): Promise<GitHubRepo[]> => {
   const perPage = 100;
-  const pool = getRequestPool();
+  const pool = getRestPool();
   if (onStatusChange) pool.setStatusCallback(onStatusChange);
   let allRepos: GitHubRepo[] = [];
   let totalPages: number | undefined = undefined;
@@ -171,15 +149,6 @@ export const fetchUserRepos = async (
     processedPages++;
     repoPageCache.set(1, filteredFirst);
   } catch (err) {
-    if (err instanceof RateLimitError && canUseGraphQL()) {
-      restReset = err.resetTimestamp || null;
-      currentMode = "graphql";
-      const controller = new AbortController();
-      allRepos = await fetchAllReposGraphQL(username, controller.signal);
-      if (onProgress) onProgress(allRepos.length, allRepos.length / 100);
-      if (onStatusChange) onStatusChange(pool.getWorkerStatuses());
-      return allRepos;
-    }
     throw err;
   }
   if (onProgress) onProgress(1, totalPages);
@@ -222,7 +191,7 @@ export const fetchUserReposControlled = async (
   controls?: RepoFetchControls
 ): Promise<GitHubRepo[]> => {
   const perPage = 100;
-  const pool = getRequestPool();
+  const pool = getRestPool();
   if (onStatusChange) pool.setStatusCallback(onStatusChange);
 
   let totalPages: number | undefined;
@@ -234,36 +203,8 @@ export const fetchUserReposControlled = async (
     page: number,
     signal: AbortSignal
   ): Promise<GitHubRepo[]> => {
-    const preferGraphQL = currentMode === "graphql" || !canUseRest();
-    if (!preferGraphQL) {
-      try {
-        const { repos } = await fetchReposREST(username, page, perPage, signal);
-        return repos.filter((repo) => repo.stargazers_count > 0);
-      } catch (err) {
-        if (err instanceof RateLimitError) {
-          restReset = err.resetTimestamp || null;
-          if (canUseGraphQL()) {
-            currentMode = "graphql";
-            return fetchPage(page, signal);
-          }
-        }
-        throw err;
-      }
-    }
-
-    try {
-      const repos = await fetchRepoPageGraphQL(username, page, signal);
-      return repos;
-    } catch (err) {
-      if (err instanceof RateLimitError) {
-        graphqlReset = err.resetTimestamp || null;
-        if (canUseRest()) {
-          currentMode = "rest";
-          return fetchPage(page, signal);
-        }
-      }
-      throw err;
-    }
+    const { repos } = await fetchReposREST(username, page, perPage, signal);
+    return repos.filter((repo) => repo.stargazers_count > 0);
   };
 
   const processTask = (page: number) => {
@@ -349,24 +290,14 @@ export const fetchUserReposControlled = async (
         break;
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
-          if (err instanceof RateLimitError && canUseGraphQL()) {
-            restReset = err.resetTimestamp || null;
-            currentMode = "graphql";
-            const all = await fetchAllReposGraphQL(username, controller.signal);
-            results[1] = all;
-            totalPages = Math.ceil(all.length / 100);
-            onProgress?.(totalPages, totalPages);
-            break;
-          } else {
-            attempt++;
-            attempts[1] = attempt;
-            if (!controls?.pausedRef.current) {
-              controls?.onError(err as Error);
-              controls?.controllers.forEach((c) => c.abort());
-            }
-            if (attempt >= 2) {
-              throw err;
-            }
+          attempt++;
+          attempts[1] = attempt;
+          if (!controls?.pausedRef.current) {
+            controls?.onError(err as Error);
+            controls?.controllers.forEach((c) => c.abort());
+          }
+          if (attempt >= 2) {
+            throw err;
           }
         }
         if (controls?.stopRef.current) throw new Error("stopped");

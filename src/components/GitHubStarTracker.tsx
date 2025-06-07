@@ -20,8 +20,10 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { ConcurrencyPool, WorkerStatus } from "@/services/concurrency";
-import { getRequestPool } from "@/services/requestPool";
+import { getRestPool, getGraphqlPool } from "@/services/requestPool";
 import { fetchStargazerPage } from "@/services/githubHeavy";
+import { fetchStargazersGraphQL } from "@/services/githubApi";
+import { isGraphQLEnabled } from "@/services/github";
 
 type LoadingStage = 0 | 1 | null;
 
@@ -315,13 +317,26 @@ const GitHubStarTracker: React.FC = () => {
         const stargazersMap = new Map<string, GitHubStargazer[]>();
         let totalPagesToProcess = 0;
         const repoPageMap: Record<string, { start: number; end: number }> = {};
+        const graphqlEnabled = isGraphQLEnabled();
+        const graphqlRepos: GitHubRepo[] = [];
+        const restRepos: GitHubRepo[] = [];
+
         for (const repo of userRepos) {
           const totalStars =
             typeof repo.stargazers_count === "number"
               ? repo.stargazers_count
               : 0;
           if (totalStars === 0) continue;
-          const endPage = Math.ceil(totalStars / 100);
+          const totalPages = Math.ceil(totalStars / 100);
+
+          if (graphqlEnabled && totalPages > 400) {
+            graphqlRepos.push(repo);
+            totalPagesToProcess += totalPages;
+            continue;
+          }
+
+          let endPage = totalPages;
+          if (!graphqlEnabled && endPage > 400) endPage = 400;
           let startPage = 1;
           if (
             (timeRangeInput === "year" || timeRangeInput === "custom") &&
@@ -343,6 +358,7 @@ const GitHubStarTracker: React.FC = () => {
           }
           totalPagesToProcess += endPage - startPage + 1;
           repoPageMap[repo.full_name] = { start: startPage, end: endPage };
+          restRepos.push(repo);
         }
         if (totalPagesToProcess === 0 && userRepos.length > 0) {
           totalPagesToProcess = userRepos.length;
@@ -358,15 +374,16 @@ const GitHubStarTracker: React.FC = () => {
           `Fetching stargazers for ${userRepos.length} repositories...`
         );
 
-        const pool = getRequestPool();
+        const pool = getRestPool();
+        const gqlPool = getGraphqlPool();
         pool.setStatusCallback((statuses) => {
-          setWorkerStatuses(statuses);
+          setWorkerStatuses([...statuses, ...gqlPool.getWorkerStatuses()]);
         });
 
         const pagesMap = new Map<string, Record<number, PageInfo>>();
         const taskQueue = taskQueueRef.current;
         const completedRepos = new Set<string>();
-        userRepos.forEach((repo) => {
+        restRepos.forEach((repo) => {
           const pageInfo = repoPageMap[repo.full_name];
           if (!pageInfo) return;
           const pages: Record<number, PageInfo> = {};
@@ -380,7 +397,7 @@ const GitHubStarTracker: React.FC = () => {
         userRepos.forEach((r) => starsMap.set(r.full_name, []));
 
         const initialByRepo: Record<string, number[]> = {};
-        userRepos.forEach((repo) => {
+        restRepos.forEach((repo) => {
           const { start, end } = repoPageMap[repo.full_name];
           const total = end - start + 1;
           const list: number[] = [];
@@ -397,7 +414,7 @@ const GitHubStarTracker: React.FC = () => {
           initialByRepo[repo.full_name] = list;
         });
 
-        const repoNames = userRepos.map((r) => r.full_name);
+        const repoNames = restRepos.map((r) => r.full_name);
         const maxLen = Math.max(
           ...repoNames.map((n) => initialByRepo[n].length)
         );
@@ -722,8 +739,42 @@ const GitHubStarTracker: React.FC = () => {
 
         pumpRef.current = pump;
         pumpRef.current();
+
+        if (graphqlRepos.length > 0) {
+          gqlPool.setStatusCallback((statuses) => {
+            setWorkerStatuses([...pool.getWorkerStatuses(), ...statuses]);
+          });
+          graphqlRepos.forEach((repo) => {
+            gqlPool.add(async () => {
+              let after: string | undefined = undefined;
+              const total = Math.ceil((repo.stargazers_count || 0) / 100);
+              for (let p = 1; p <= total; p++) {
+                if (stopRef.current) return;
+                while (pausedRef.current) {
+                  await new Promise<void>((resolve) => {
+                    resumeResolveRef.current = resolve;
+                  });
+                  if (stopRef.current) return;
+                }
+                const { stars, endCursor } = await fetchStargazersGraphQL(
+                  repo.full_name,
+                  after
+                );
+                after = endCursor || undefined;
+                setProcessedItemsCount((prev) => prev + 1);
+                starsMap.get(repo.full_name)!.push(...stars);
+              }
+              completedRepos.add(repo.full_name);
+              log(
+                "success",
+                repo.full_name,
+                `Finished loading ${starsMap.get(repo.full_name)!.length} stars.`
+              );
+            });
+          });
+        }
         while (true) {
-          await pool.awaitAll();
+          await Promise.all([pool.awaitAll(), gqlPool.awaitAll()]);
           if (stopRef.current) {
             log("stage", "App", "Process aborted by user.");
             return;
@@ -740,7 +791,8 @@ const GitHubStarTracker: React.FC = () => {
           if (
             taskQueue.length === 0 &&
             controllersRef.current.size === 0 &&
-            pool.getActiveCount() === 0
+            pool.getActiveCount() === 0 &&
+            gqlPool.getActiveCount() === 0
           )
             break;
           pumpRef.current();
