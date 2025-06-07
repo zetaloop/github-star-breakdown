@@ -3,74 +3,9 @@ import {
   GitHubStargazer,
   RepoStarHistoryItem,
 } from "@/types/github";
-import { ConcurrencyPool, WorkerStatus } from "./concurrency";
+import { WorkerStatus } from "./concurrency";
 import { getRestPool } from "./requestPool";
-import { fetchReposREST, fetchReposGraphQL } from "./githubApi";
-
-type ApiMode = "rest" | "graphql";
-let currentMode: ApiMode = "rest";
-let restReset: number | null = null;
-let graphqlReset: number | null = null;
-const repoCursorCache: Map<number, string | null> = new Map();
-const repoPageCache: Map<number, GitHubRepo[]> = new Map();
-
-const canUseRest = () => !restReset || Date.now() >= restReset * 1000;
-const canUseGraphQL = () => !graphqlReset || Date.now() >= graphqlReset * 1000;
-
-const fetchRepoPageGraphQL = async (
-  username: string,
-  page: number,
-  signal: AbortSignal
-): Promise<GitHubRepo[]> => {
-  const pCache = repoPageCache;
-  if (pCache.has(page)) return pCache.get(page)!;
-  let last = 0;
-  const sorted = Array.from(repoCursorCache.keys()).sort((a, b) => a - b);
-  for (const k of sorted) {
-    if (k < page) last = k;
-  }
-  let after = last > 0 ? repoCursorCache.get(last) || undefined : undefined;
-  for (let p = last + 1; p <= page; p++) {
-    const { repos, endCursor } = await fetchReposGraphQL(
-      username,
-      after,
-      signal
-    );
-    pCache.set(
-      p,
-      repos.filter((r) => r.stargazers_count > 0)
-    );
-    repoCursorCache.set(p, endCursor);
-    after = endCursor || undefined;
-  }
-  return pCache.get(page)!;
-};
-
-const fetchAllReposGraphQL = async (
-  username: string,
-  signal: AbortSignal
-): Promise<GitHubRepo[]> => {
-  const all: GitHubRepo[] = [];
-  let after: string | undefined = undefined;
-  let page = 1;
-  while (true) {
-    const { repos, endCursor, hasNextPage } = await fetchReposGraphQL(
-      username,
-      after,
-      signal
-    );
-    repoPageCache.set(
-      page,
-      repos.filter((r) => r.stargazers_count > 0)
-    );
-    repoCursorCache.set(page, endCursor);
-    all.push(...repoPageCache.get(page)!);
-    if (!hasNextPage) break;
-    after = endCursor || undefined;
-    page++;
-  }
-  return all;
-};
+import { fetchReposREST } from "./githubApi";
 
 export class RateLimitError extends Error {
   public resetTimestamp?: number;
@@ -123,34 +58,27 @@ export const fetchUserRepos = async (
   if (onStatusChange) pool.setStatusCallback(onStatusChange);
   let allRepos: GitHubRepo[] = [];
   let totalPages: number | undefined = undefined;
-  let processedPages = 0;
 
   // Fetch the first page synchronously to get total pages
-  try {
-    const { repos: firstPageRepos, linkHeader } = await fetchReposREST(
-      username,
-      1,
-      perPage
-    );
-    if (linkHeader) {
-      const links = linkHeader.split(",");
-      const lastPageLink = links.find((link) => link.includes('rel="last"'));
-      if (lastPageLink) {
-        const match = lastPageLink.match(/[?&]page=(\d+)/);
-        if (match) {
-          totalPages = parseInt(match[1], 10);
-        }
+  const { repos: firstPageRepos, linkHeader } = await fetchReposREST(
+    username,
+    1,
+    perPage
+  );
+  if (linkHeader) {
+    const links = linkHeader.split(",");
+    const lastPageLink = links.find((link) => link.includes('rel="last"'));
+    if (lastPageLink) {
+      const match = lastPageLink.match(/[?&]page=(\d+)/);
+      if (match) {
+        totalPages = parseInt(match[1], 10);
       }
     }
-    const filteredFirst = firstPageRepos.filter(
-      (repo) => repo.stargazers_count > 0
-    );
-    allRepos = [...allRepos, ...filteredFirst];
-    processedPages++;
-    repoPageCache.set(1, filteredFirst);
-  } catch (err) {
-    throw err;
   }
+  const filteredFirst = firstPageRepos.filter(
+    (repo) => repo.stargazers_count > 0
+  );
+  allRepos = [...allRepos, ...filteredFirst];
   if (onProgress) onProgress(1, totalPages);
 
   // If only one page, return

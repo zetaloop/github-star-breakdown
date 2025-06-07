@@ -11,16 +11,16 @@ export interface GitHubRepo {
   language: string | null;
   fork: boolean;
   html_url: string;
-  owner: {
-    login: string;
-    avatar_url: string;
+  owner?: {
+    login?: string;
+    avatar_url?: string;
   };
 }
 
 export interface GitHubStargazer {
   starred_at: string;
-  user: {
-    login: string;
+  user?: {
+    login?: string;
   };
 }
 

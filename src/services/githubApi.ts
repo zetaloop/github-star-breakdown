@@ -116,7 +116,6 @@ export const fetchReposGraphQL = async (
           primaryLanguage { name }
           isFork
           url
-          owner { login avatarUrl }
         }
         pageInfo { hasNextPage endCursor }
       }
@@ -163,7 +162,6 @@ export const fetchReposGraphQL = async (
     primaryLanguage: { name: string } | null;
     isFork: boolean;
     url: string;
-    owner: { login: string; avatarUrl: string };
   }>;
   const repos: GitHubRepo[] = repoNodes.map((node) => ({
     id: node.databaseId,
@@ -177,10 +175,6 @@ export const fetchReposGraphQL = async (
     language: node.primaryLanguage ? node.primaryLanguage.name : null,
     fork: node.isFork,
     html_url: node.url,
-    owner: {
-      login: node.owner.login,
-      avatar_url: node.owner.avatarUrl,
-    },
   }));
   const pageInfo = data.data.user?.repositories.pageInfo;
   return {
@@ -211,7 +205,6 @@ export const fetchStargazersGraphQL = async (
       stargazers(first: 100, after: $after) {
         edges {
           starredAt
-          node { login }
         }
         pageInfo { hasNextPage endCursor }
       }
@@ -248,11 +241,9 @@ export const fetchStargazersGraphQL = async (
   }
   const edges = (data.data.repository?.stargazers.edges || []) as Array<{
     starredAt: string;
-    node: { login: string };
   }>;
   const stars: GitHubStargazer[] = edges.map((edge) => ({
     starred_at: edge.starredAt,
-    user: { login: edge.node.login },
   }));
   let oldest: Date | null = null;
   let newest: Date | null = null;

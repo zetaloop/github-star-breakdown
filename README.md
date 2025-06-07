@@ -11,9 +11,10 @@ A React + Vite application that analyses how each repository contributes to a Gi
 - **Interactive star chart** – stacked area chart with animated tooltips showing per‑repo totals.
 - **Repository table** – sorted by star change or total stars with links to each repo.
 - **Progress indicator** – multi‑stage loader with real‑time log of API requests.
+- **GraphQL fallback toggle** – disable GraphQL requests to conserve quota; the progress bar turns grayscale when off.
 - **Theme toggle** – switch between light, dark or system theme.
 
-Behind the scenes a concurrency pool and binary search strategy speed up fetching stargazer pages while handling rate limits gracefully.
+Behind the scenes separate REST and GraphQL concurrency pools and a binary search strategy speed up fetching stargazer pages while handling rate limits gracefully.
 
 ## Installation
 

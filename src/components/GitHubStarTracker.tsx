@@ -19,7 +19,7 @@ import {
 } from "@/services/github";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { ConcurrencyPool, WorkerStatus } from "@/services/concurrency";
+import { WorkerStatus } from "@/services/concurrency";
 import { getRestPool, getGraphqlPool } from "@/services/requestPool";
 import { fetchStargazerPage } from "@/services/githubHeavy";
 import { fetchStargazersGraphQL } from "@/services/githubApi";
@@ -756,13 +756,39 @@ const GitHubStarTracker: React.FC = () => {
                   });
                   if (stopRef.current) return;
                 }
-                const { stars, endCursor } = await fetchStargazersGraphQL(
-                  repo.full_name,
-                  after
-                );
-                after = endCursor || undefined;
-                setProcessedItemsCount((prev) => prev + 1);
-                starsMap.get(repo.full_name)!.push(...stars);
+                const key = `gql:${repo.full_name}:${p}`;
+                const controller = new AbortController();
+                controllersRef.current.set(key, controller);
+                try {
+                  const { stars, endCursor } = await fetchStargazersGraphQL(
+                    repo.full_name,
+                    after,
+                    controller.signal
+                  );
+                  after = endCursor || undefined;
+                  setProcessedItemsCount((prev) => prev + 1);
+                  starsMap.get(repo.full_name)!.push(...stars);
+                } catch (err) {
+                  log(
+                    "error",
+                    repo.full_name,
+                    err instanceof Error ? err.message : String(err)
+                  );
+                  setFailedItemsCount((prev) => prev + (total - p + 1));
+                  setProcessedItemsCount((prev) => prev + (total - p + 1));
+                  completedRepos.add(repo.full_name);
+                  if (!pausedRef.current) {
+                    pausedRef.current = true;
+                    setIsPaused(true);
+                    toast.error(
+                      err instanceof Error ? err.message : String(err)
+                    );
+                    controllersRef.current.forEach((c) => c.abort());
+                  }
+                  return;
+                } finally {
+                  controllersRef.current.delete(key);
+                }
               }
               completedRepos.add(repo.full_name);
               log(

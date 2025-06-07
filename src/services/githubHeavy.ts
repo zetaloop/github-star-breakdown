@@ -1,6 +1,6 @@
 import { GitHubStargazer } from "@/types/github";
 import { fetchStargazersREST, fetchStargazersGraphQL } from "./githubApi";
-import { RateLimitError } from "./github";
+import { RateLimitError, isGraphQLEnabled } from "./github";
 
 let restReset: number | null = null;
 let graphqlReset: number | null = null;
@@ -20,8 +20,9 @@ export const fetchStargazerPage = async (
   page: number,
   signal?: AbortSignal
 ) => {
+  const graphqlEnabled = isGraphQLEnabled();
   const preferGraphQL = page > 400 || !canUseRest();
-  if (!preferGraphQL && canUseRest()) {
+  if (!preferGraphQL || !graphqlEnabled) {
     try {
       const { stars, oldest, newest } = await fetchStargazersREST(
         repoFullName,
@@ -32,12 +33,16 @@ export const fetchStargazerPage = async (
     } catch (err) {
       if (err instanceof RateLimitError) {
         restReset = err.resetTimestamp || null;
-        if (canUseGraphQL()) {
+        if (preferGraphQL && graphqlEnabled && canUseGraphQL()) {
           return fetchStargazerPage(repoFullName, page, signal);
         }
       }
       throw err;
     }
+  }
+
+  if (!graphqlEnabled) {
+    throw new Error("GraphQL disabled");
   }
 
   let pCache = pageCache.get(repoFullName);
