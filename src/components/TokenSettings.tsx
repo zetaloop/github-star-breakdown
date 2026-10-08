@@ -1,13 +1,20 @@
 import { Eye, EyeOff, KeyRound, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   clearGitHubToken,
   fetchGitHubUser,
-  fetchRateLimit,
   type GitHubUser,
   getGitHubToken,
-  type RateLimitItem,
+  getRateLimit,
   setGitHubToken,
+  subscribeRateLimit,
 } from "@/services/githubApi";
 import { IconButton } from "./ui";
 
@@ -23,7 +30,7 @@ export default function TokenSettings({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [account, setAccount] = useState<GitHubUser | null>(null);
-  const [quota, setQuota] = useState<RateLimitItem | null>(null);
+  const quota = useSyncExternalStore(subscribeRateLimit, getRateLimit);
   const id = useId();
   const request = useRef<AbortController | null>(null);
 
@@ -33,13 +40,9 @@ export default function TokenSettings({
       setLoading(true);
       setError("");
       try {
-        const [user, limit] = await Promise.all([
-          fetchGitHubUser(saved, signal),
-          fetchRateLimit(signal),
-        ]);
+        const user = await fetchGitHubUser(saved, signal);
         if (signal?.aborted) return;
         setAccount(user);
-        setQuota(limit);
       } catch (cause) {
         if (!signal?.aborted) {
           setError(cause instanceof Error ? cause.message : String(cause));
@@ -103,11 +106,11 @@ export default function TokenSettings({
               <progress
                 aria-label="剩余 API 请求额度"
                 max={quota.limit}
-                value={quota.limit - quota.used}
+                value={quota.remaining}
               />
               <div className="quota-caption">
                 <span>
-                  剩余 {(quota.limit - quota.used).toLocaleString()} /{" "}
+                  剩余 {quota.remaining.toLocaleString()} /{" "}
                   {quota.limit.toLocaleString()} 次
                 </span>
                 <span>

@@ -1,9 +1,39 @@
 export const getGitHubToken = () => localStorage.getItem("github_token");
 
-export const setGitHubToken = (token: string) =>
-  localStorage.setItem("github_token", token.trim());
+export interface RateLimitItem {
+  limit: number;
+  remaining: number;
+  reset: number;
+}
 
-export const clearGitHubToken = () => localStorage.removeItem("github_token");
+let rateLimit: RateLimitItem | null = null;
+const listeners = new Set<() => void>();
+
+export const getRateLimit = () => rateLimit;
+
+export function subscribeRateLimit(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function updateRateLimit(value: RateLimitItem | null) {
+  rateLimit = value;
+  for (const listener of listeners) listener();
+}
+
+export function setGitHubToken(token: string) {
+  const value = token.trim();
+  const changed = value !== getGitHubToken();
+  localStorage.setItem("github_token", value);
+  if (changed) updateRateLimit(null);
+}
+
+export function clearGitHubToken() {
+  localStorage.removeItem("github_token");
+  updateRateLimit(null);
+}
 
 export interface GitHubPage<T> {
   data: T;
@@ -23,7 +53,24 @@ export async function fetchGitHub<T>(
       "X-GitHub-Api-Version": "2026-03-10",
     },
     signal,
+    cache: "no-cache",
   });
+  const limit = response.headers.get("X-RateLimit-Limit");
+  const remaining = response.headers.get("X-RateLimit-Remaining");
+  const reset = response.headers.get("X-RateLimit-Reset");
+  if (
+    response.headers.get("X-RateLimit-Resource") === "core" &&
+    token === getGitHubToken() &&
+    limit !== null &&
+    remaining !== null &&
+    reset !== null
+  ) {
+    updateRateLimit({
+      limit: Number(limit),
+      remaining: Number(remaining),
+      reset: Number(reset),
+    });
+  }
   if (!response.ok) {
     const detail = await response.json();
     let message = detail.message || response.statusText;
@@ -61,20 +108,4 @@ export interface GitHubUser {
 export async function fetchGitHubUser(token: string, signal?: AbortSignal) {
   const { data } = await fetchGitHub<GitHubUser>("user", signal, token.trim());
   return data;
-}
-
-export interface RateLimitItem {
-  limit: number;
-  used: number;
-  reset: number;
-}
-
-export async function fetchRateLimit(
-  signal?: AbortSignal,
-): Promise<RateLimitItem> {
-  const { data } = await fetchGitHub<{ resources: { core: RateLimitItem } }>(
-    "rate_limit",
-    signal,
-  );
-  return data.resources.core;
 }
