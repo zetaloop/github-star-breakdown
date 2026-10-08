@@ -8,8 +8,7 @@ import {
   Square,
 } from "lucide-react";
 import { useState } from "react";
-import { rangeLabel } from "@/services/history";
-import type { AnalysisResult, TimeRange } from "@/types/github";
+import type { TimeRange } from "@/types/github";
 import DateRangePicker from "./DateRangePicker";
 import { IconButton } from "./ui";
 
@@ -18,7 +17,6 @@ interface UserRepoSearchProps {
   isLoading: boolean;
   isPaused: boolean;
   hasError: boolean;
-  result: AnalysisResult | null;
   onPauseToggle: () => void;
   onStop: () => void;
   onSettings: () => void;
@@ -29,7 +27,6 @@ export default function UserRepoSearch({
   isLoading,
   isPaused,
   hasError,
-  result,
   onPauseToggle,
   onStop,
   onSettings,
@@ -37,10 +34,6 @@ export default function UserRepoSearch({
   const [username, setUsername] = useState("");
   const [range, setRange] = useState<TimeRange>({ type: "year" });
   const login = username.trim().replace(/^@/, "");
-  const changed =
-    result &&
-    (login.toLowerCase() !== result.username.toLowerCase() ||
-      rangeLabel(range) !== rangeLabel(result.range));
   return (
     <form
       className="search-panel"
@@ -106,11 +99,6 @@ export default function UserRepoSearch({
           </div>
         )}
       </div>
-      {changed && !isLoading && (
-        <p className="search-note">
-          筛选条件已更改，下方显示上一次分析的结果。
-        </p>
-      )}
     </form>
   );
 }

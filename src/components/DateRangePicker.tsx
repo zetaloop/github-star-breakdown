@@ -85,8 +85,8 @@ export default function DateRangePicker({
         <div className="date-panel-footer">
           <span>
             {draft?.from
-              ? `${dateKey(draft.from)}${draft.to ? ` — ${dateKey(draft.to)}` : " — 选择结束日期"}`
-              : "选择开始和结束日期"}
+              ? `${dateKey(draft.from)}${draft.to ? ` — ${dateKey(draft.to)}` : " — 结束日期"}`
+              : "开始日期 — 结束日期"}
           </span>
           <button
             type="button"

@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { lazy, memo, Suspense, useMemo, useState } from "react";
-import { palette, type RepoSeries } from "@/lib/chart";
+import { type RepoSeries, repoColor } from "@/lib/chart";
 import { rangeLabel } from "@/services/history";
 import type { AnalysisResult, AnalysisStatus } from "@/types/github";
 import RepoStatsTable from "./RepoStatsTable";
@@ -18,17 +18,11 @@ export default memo(function AnalysisResults({
   const [highlighted, setHighlighted] = useState<number | null>(null);
   const repos: RepoSeries[] = useMemo(
     () =>
-      result.repos
-        .toSorted(
-          (a, b) =>
-            b.stargazers_count - a.stargazers_count ||
-            a.name.localeCompare(b.name),
-        )
-        .map((repo, index) => ({
-          ...repo,
-          color: palette[index % palette.length],
-          history: result.history.get(repo.id),
-        })),
+      result.repos.map((repo) => ({
+        ...repo,
+        color: repoColor(repo.name),
+        history: result.history.get(repo.id),
+      })),
     [result.repos, result.history],
   );
   const visible = useMemo(
@@ -107,7 +101,7 @@ export default memo(function AnalysisResults({
               status={status}
               highlighted={highlighted}
               onHighlight={setHighlighted}
-              onOnly={(ids) => setSelected(new Set(ids))}
+              onOnly={(id) => setSelected(new Set([id]))}
             />
           </Suspense>
           <RepoStatsTable

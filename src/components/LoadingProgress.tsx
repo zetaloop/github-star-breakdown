@@ -14,9 +14,9 @@ export default function LoadingProgress({
     status === "complete"
       ? "分析完成"
       : status === "stopped"
-        ? "已停止，展示已取得的数据"
+        ? "已停止"
         : status === "paused"
-          ? "已暂停，可恢复或重试"
+          ? "已暂停"
           : stage === "repos"
             ? "正在读取仓库列表"
             : "正在读取星标历史";
@@ -24,10 +24,11 @@ export default function LoadingProgress({
     <div className={`analysis-progress ${status}`} role="status">
       <div className="progress-caption">
         <span>{label}</span>
-        <span>
-          {completed}/{total || "?"} {stage === "repos" ? "页" : "个仓库"}
-          {" · "}
-          {requests} 次请求
+        <span className="progress-details">
+          <span>
+            {completed}/{total || "?"} {stage === "repos" ? "页" : "个仓库"}
+          </span>
+          <span>{requests} 次请求</span>
         </span>
       </div>
       {(status === "loading" || status === "paused") && (

@@ -47,7 +47,6 @@ export default function RepoStatsTable({
           <h2>
             仓库 <span className="repo-quantity">{repos.length}</span>
           </h2>
-          <p>勾选仓库，与图表一起查看</p>
         </div>
         <select
           aria-label="仓库排序"

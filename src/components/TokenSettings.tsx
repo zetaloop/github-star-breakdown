@@ -130,7 +130,7 @@ export default function TokenSettings({
       >
         <fieldset disabled={saving}>
           <label className="field-label" htmlFor={id}>
-            GitHub Personal Access Token
+            GitHub Token
           </label>
           <div className="password-field">
             <input
@@ -141,7 +141,6 @@ export default function TokenSettings({
               autoComplete="off"
               spellCheck={false}
               required
-              aria-describedby={`${id}-help`}
               onChange={(event) => setToken(event.target.value)}
             />
             <IconButton
@@ -151,10 +150,6 @@ export default function TokenSettings({
               {visible ? <EyeOff /> : <Eye />}
             </IconButton>
           </div>
-          <p id={`${id}-help`} className="field-help">
-            Token 存储在当前浏览器，用于请求 GitHub
-            API。查询公开仓库使用公开元数据权限。
-          </p>
           <a
             className="text-link"
             href="https://github.com/settings/personal-access-tokens/new"

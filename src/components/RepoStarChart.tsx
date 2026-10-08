@@ -45,7 +45,7 @@ function StarTooltip({ active, payload, label }: TooltipContentProps) {
         </strong>
       </header>
       <ul>
-        {entries.slice(0, 12).map((entry) => (
+        {entries.map((entry) => (
           <li key={entry.name}>
             <span className="color-dot" style={{ background: entry.color }} />
             <span className="tooltip-name">{entry.name}</span>
@@ -53,15 +53,6 @@ function StarTooltip({ active, payload, label }: TooltipContentProps) {
           </li>
         ))}
       </ul>
-      {entries.length > 12 && (
-        <p>
-          其余 {entries.length - 12} 项合计{" "}
-          {entries
-            .slice(12)
-            .reduce((sum, entry) => sum + Number(entry.value), 0)
-            .toLocaleString()}
-        </p>
-      )}
     </div>
   );
 }
@@ -79,32 +70,21 @@ export default function RepoStarChart({
   status: AnalysisStatus;
   highlighted: number | null;
   onHighlight: (id: number | null) => void;
-  onOnly: (ids: number[]) => void;
+  onOnly: (id: number) => void;
 }) {
   const [mode, setMode] = useState<ChartMode>("cumulative");
-  const [grouped, setGrouped] = useState(true);
   const deferredRepos = useDeferredValue(repos);
   const { series, points } = useMemo(
-    () => chartData(deferredRepos, bounds, mode, grouped),
-    [deferredRepos, bounds, mode, grouped],
+    () => chartData(deferredRepos, bounds, mode),
+    [deferredRepos, bounds, mode],
   );
-  const contributing = repos.filter(
-    (repo) => (repo.history?.total || 0) > 0,
-  ).length;
   const focused =
     highlighted !== null &&
-    series.some((entry) => entry.repoIds.includes(highlighted));
+    series.some((entry) => entry.repoId === highlighted);
   return (
     <section className="chart-section" aria-label="星标贡献图">
       <header className="section-heading">
-        <div>
-          <h2>星标贡献</h2>
-          <p>
-            {mode === "cumulative"
-              ? "从所选范围的起点累计"
-              : "当前有效星标的每日分布"}
-          </p>
-        </div>
+        <h2>星标贡献</h2>
         <Segmented<ChartMode>
           label="图表模式"
           value={mode}
@@ -149,6 +129,8 @@ export default function RepoStarChart({
               <Tooltip
                 content={StarTooltip}
                 animationDuration={0}
+                allowEscapeViewBox={{ x: false, y: true }}
+                position={{ y: 0 }}
                 wrapperStyle={{ zIndex: 5 }}
               />
               {series.toReversed().map((entry) => (
@@ -162,7 +144,7 @@ export default function RepoStarChart({
                   className={
                     focused &&
                     highlighted !== null &&
-                    !entry.repoIds.includes(highlighted)
+                    entry.repoId !== highlighted
                       ? "dimmed"
                       : undefined
                   }
@@ -171,11 +153,7 @@ export default function RepoStarChart({
                   isAnimationActive={false}
                   activeDot={false}
                   dot={points.length === 1 ? { r: 4 } : false}
-                  onMouseEnter={() =>
-                    onHighlight(
-                      entry.repoIds.length === 1 ? entry.repoIds[0] : null,
-                    )
-                  }
+                  onMouseEnter={() => onHighlight(entry.repoId)}
                   onMouseLeave={() => onHighlight(null)}
                 />
               ))}
@@ -185,12 +163,12 @@ export default function RepoStarChart({
       ) : (
         <div className="empty-chart">
           {!repos.length
-            ? "选择仓库以查看图表"
+            ? "未选择仓库"
             : status === "paused"
               ? "分析已暂停"
               : status === "loading"
                 ? "正在读取星标历史…"
-                : "所选仓库在此范围内没有星标"}
+                : "暂无星标数据"}
         </div>
       )}
       <div className="chart-legend">
@@ -199,14 +177,10 @@ export default function RepoStarChart({
             type="button"
             key={entry.key}
             title={`仅查看 ${entry.name}`}
-            onClick={() => onOnly(entry.repoIds)}
-            onMouseEnter={() =>
-              onHighlight(entry.repoIds.length === 1 ? entry.repoIds[0] : null)
-            }
+            onClick={() => onOnly(entry.repoId)}
+            onMouseEnter={() => onHighlight(entry.repoId)}
             onMouseLeave={() => onHighlight(null)}
-            onFocus={() =>
-              onHighlight(entry.repoIds.length === 1 ? entry.repoIds[0] : null)
-            }
+            onFocus={() => onHighlight(entry.repoId)}
             onBlur={() => onHighlight(null)}
           >
             <span className="color-dot" style={{ background: entry.color }} />
@@ -214,18 +188,6 @@ export default function RepoStarChart({
           </button>
         ))}
       </div>
-      <footer className="chart-options">
-        <span>{repos.length} 个仓库已选，图例可单独查看。</span>
-        {contributing > 10 && (
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => setGrouped(!grouped)}
-          >
-            {grouped ? "展开全部" : "合并小仓库"}
-          </button>
-        )}
-      </footer>
     </section>
   );
 }

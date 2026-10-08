@@ -1,4 +1,4 @@
-import { AlertCircle, ChartNoAxesCombined } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useStarAnalysis } from "@/hooks/useStarAnalysis";
 import { getGitHubToken } from "@/services/githubApi";
@@ -19,8 +19,7 @@ export default function GitHubStarTracker() {
     <div className="workspace">
       {!result && (
         <header className="welcome">
-          <h1>看看项目的成长。</h1>
-          <p>从一个 GitHub 账号出发，查看每个仓库的星标贡献。</p>
+          <h1>GitHub 星标分析</h1>
         </header>
       )}
       {!hasToken ? (
@@ -34,7 +33,6 @@ export default function GitHubStarTracker() {
             isLoading={busy}
             isPaused={status === "paused"}
             hasError={!!error}
-            result={result}
             onPauseToggle={analysis.togglePause}
             onStop={analysis.stop}
             onSettings={() => setSettingsOpen(true)}
@@ -52,13 +50,6 @@ export default function GitHubStarTracker() {
               result={result}
               status={status}
             />
-          )}
-          {!result && !busy && (
-            <div className="empty-state">
-              <ChartNoAxesCombined size={36} strokeWidth={1.2} />
-              <p>输入用户名，展开星标历史</p>
-              <span>项目之间的贡献与变化，会汇集在同一张图里。</span>
-            </div>
           )}
         </>
       )}
