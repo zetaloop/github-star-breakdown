@@ -14,7 +14,7 @@ import {
   clearGitHubToken,
   setGitHubToken,
   verifyGitHubToken,
-} from "@/services/github";
+} from "@/services/githubApi";
 import { formatDistanceStrict, differenceInSeconds } from "date-fns";
 import { toast } from "sonner";
 
@@ -47,16 +47,21 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
     setLoading(true);
     setRestReset(null);
     setGqlReset(null);
-    const info = await fetchRateLimit();
-    if (info) {
-      setRestLimit(info.core.limit);
-      setRestUsed(info.core.used);
-      setRestReset(info.core.reset);
-      setGqlLimit(info.graphql.limit);
-      setGqlUsed(info.graphql.used);
-      setGqlReset(info.graphql.reset);
+    try {
+      const info = await fetchRateLimit();
+      if (info) {
+        setRestLimit(info.core.limit);
+        setRestUsed(info.core.used);
+        setRestReset(info.core.reset);
+        setGqlLimit(info.graphql.limit);
+        setGqlUsed(info.graphql.used);
+        setGqlReset(info.graphql.reset);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const handleOpenChange = useCallback(
@@ -84,17 +89,22 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
     if (!newToken.trim()) return;
     setIsValidating(true);
     setEditError("");
-    const isValid = await verifyGitHubToken(newToken);
-    if (isValid) {
-      setGitHubToken(newToken);
-      toast.success("GitHub token updated");
-      setNewToken("");
-      setEditing(false);
-      await fetchAndSetData();
-    } else {
-      setEditError("Invalid GitHub token");
+    try {
+      const isValid = await verifyGitHubToken(newToken);
+      if (isValid) {
+        setGitHubToken(newToken);
+        toast.success("GitHub token updated");
+        setNewToken("");
+        setEditing(false);
+        await fetchAndSetData();
+      } else {
+        setEditError("Invalid GitHub token");
+      }
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsValidating(false);
     }
-    setIsValidating(false);
   };
 
   const restProgress =

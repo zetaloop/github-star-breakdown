@@ -10,10 +10,12 @@ A React + Vite application that analyses how each repository contributes to a Gi
 - **Custom date ranges** – inspect the last year, all time or a calendar‑based range.
 - **Interactive star chart** – stacked area chart with animated tooltips showing per‑repo totals.
 - **Repository table** – sorted by star change or total stars with links to each repo.
-- **Progress indicator** – multi‑stage loader with real‑time log of API requests.
+- **Progress indicator** – repository progress, request counts, pause, resume and cancellation.
 - **Theme toggle** – switch between light, dark or system theme.
 
-Behind the scenes a concurrency pool and binary search strategy speed up fetching stargazer pages while handling rate limits gracefully.
+Star history comes from GitHub's [repository star history API](https://docs.github.com/en/rest/activity/starring#get-repository-star-history). It returns 30 weeks per page with daily counts. Requests cover the selected date range, with up to six repositories processed concurrently.
+
+The chart groups stars that are still active by their original creation dates. Removing a star changes the count on its original date. Calendar days follow GitHub's aggregation weeks.
 
 ## Installation
 
@@ -34,16 +36,19 @@ pnpm lint     # Run ESLint
 
 ## Usage
 
-1. Launch the app and enter your GitHub personal access token (requires `repo` and `read:user`).
+1. Launch the app and enter your GitHub personal access token. Public repository history requires public metadata access.
 2. Type a GitHub username and pick **Last Year**, **All Time** or **Custom** dates.
-3. Follow the progress log as repositories and stargazers are fetched.
+3. Follow the progress as repositories and their star history are fetched. A failed request pauses the analysis; resume to retry it.
 4. Explore the stacked chart and stats table to see how repositories contributed to the star count.
 5. Use **Token Info** to check remaining API quota or clear the token.
 
 ## Project Structure
 
 - `src/components` – UI components such as `GitHubStarTracker`, `RepoStarChart`, `RepoStatsTable`, `LoadingProgress`, `ThemeToggle` and helpers.
-- `src/services/github.ts` – token management, concurrency utilities and data processing.
+- `src/services/github.ts` – repository pagination and concurrent history fetching.
+- `src/services/githubApi.ts` – authenticated REST requests, token management and quota information.
+- `src/services/history.ts` – calendar dates, page selection and daily star counts.
+- `src/hooks/useStarAnalysis.ts` – analysis state, pause, retry and cancellation.
 - `src/pages` – routable pages (`Index.tsx`, `NotFound.tsx`).
 - `src/hooks` and `src/types` – custom hooks and TypeScript definitions.
 - `src/components/ui` – shadcn‑ui building blocks (avoid editing directly).

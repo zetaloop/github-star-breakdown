@@ -1,61 +1,33 @@
-# LLM Agent Guidelines for github-star-growth-mapper
+# github-star-growth-mapper
 
-> Note: This document is intended as a guide for LLM based AI programming agents. It provides essential context about the project structure, development practices, and key architectural decisions to help agents understand and interact with the codebase effectively.
+This is a browser-only React application for analysing the star contributions of a GitHub user's repositories. GitHub requests use a personal access token stored in localStorage.
 
-This repository contains a React application built with Vite and pnpm. The app visualizes the star history of a GitHub user's repositories. Key directories:
+## Development
 
-- `src/`
-  - `components/` – React components including `GitHubStarTracker` (main component), `RepoStarChart`, `RepoStatsTable`, UI primitives under `ui/`, and other helpers.
-    - `ui/` – prebuilt shadcn-ui components. These come from the library and usually shouldn't be modified directly.
-  - `pages/` – Routable pages (`Index.tsx`, `NotFound.tsx`).
-  - `services/` – Logic for interacting with the GitHub API (fetching repos and stargazers, concurrency utilities).
-  - `hooks/` – Custom React hooks.
-  - `types/` – TypeScript interfaces used throughout.
-- `public/` – Static assets and HTML template.
-- `vite.config.ts` – Vite configuration with alias `@` pointing to `src`.
-- `tailwind.config.ts`, `postcss.config.js` – Tailwind CSS setup.
+Use the pnpm version declared in `package.json`.
 
-## Installing Dependencies
-Use pnpm for package management:
-```bash
+```sh
 pnpm install
+pnpm dev
+pnpm lint --fix
+pnpm build
 ```
 
-## Useful Scripts
-Run scripts via pnpm:
-```bash
-pnpm dev        # Start development server
-pnpm build      # Build for production
-pnpm lint --fix # Run ESLint (No output if everything is fine)
-pnpm preview    # Preview production build
-```
+Commit messages use Chinese Conventional Commits. Changes should follow the surrounding source style. Components under `src/components/ui` originate from shadcn-ui.
 
-## Development Notes
-- Code formatting follows the settings in `.prettierrc.json`.
-- ESLint is configured in `eslint.config.js`. When modifying TypeScript/React code, run `pnpm lint` before committing.
-- Main entry is `src/main.tsx`; React app is rendered in `index.html` inside the `#root` element.
-- The main application logic is encapsulated within the `GitHubStarTracker` component. It manages state for the user input, loading process, API data, and error handling.
-- API interactions are split across services:
-  - `src/services/github.ts`: Handles user repository fetching, token management (`get/set/verify`), rate limit checking, and final data processing (`processRepoStarHistory`).
-  - `src/services/githubHeavy.ts`: Contains the logic for fetching individual stargazer pages, designed to be used in a concurrent environment.
-  - `src/services/githubApi.ts`: Shared REST and GraphQL helpers. `fetchReposREST` and `fetchStargazersREST` are used by the services above, while `fetchReposGraphQL` and `fetchStargazersGraphQL` expose equivalent GraphQL functionality (numeric repository IDs and `oldest`/`newest` timestamps).
-  - `src/services/concurrency.ts`: Provides a `ConcurrencyPool` class to manage and limit simultaneous API requests, preventing rate limit errors and browser overload.
+## Structure
 
-### Advanced Stargazer Fetching Strategy
+- `src/components/GitHubStarTracker.tsx` coordinates the search form and analysis views.
+- `src/hooks/useStarAnalysis.ts` owns analysis state, pause/resume promises and AbortControllers.
+- `src/services/githubApi.ts` handles authenticated REST requests and errors.
+- `src/services/github.ts` fetches repository lists and history with bounded concurrency.
+- `src/services/history.ts` maps calendar ranges to history pages and expands weekly data.
+- `src/types/github.ts` contains the data shared by the services and views.
 
-To efficiently analyze repositories with thousands of stars without fetching every single stargazer, the application employs a sophisticated, multi-stage fetching strategy orchestrated by `GitHubStarTracker`:
+## Star history
 
-1.  **Stage 0: Fetch Repositories**: It first fetches a list of all user repositories with stars, using a concurrent fetch for paginated results.
-2.  **Stage 1: Deep Scan Stargazers**: Instead of fetching all stargazer pages for every repo, it uses an intelligent, adaptive approach:
-    -   **Concurrency Pool**: All stargazer page requests are managed by a `ConcurrencyPool` (set to a limit of 50) to control the flow of API calls.
-    -   **Initial Sampling**: For each repo, it doesn't start from page 1. Instead, it begins by fetching a few sample pages from different points in the star history (e.g., at 25%, 50%, 75% of the pages). This provides a quick overview of the star date distribution.
-    -   **Time-Based Pruning**: The data from these initial samples is used to make smart decisions. If a fetched page's star dates are entirely outside the user's selected time range (e.g., all stars on a page are too new or too old), the algorithm can infer that entire sections of pages don't need to be fetched, and skips them.
-    -   **Same-Day Prediction**: If the newest star on one fetched page (e.g., page 10) and the oldest star on the next fetched page (e.g., page 20) fall on the same calendar day, the algorithm assumes all pages in between (11-19) also contain stars from that day and marks them as "predicted" without fetching them. This dramatically reduces API calls for repos with rapid growth spurts.
-    -   **Adaptive Queue**: The process is managed by a dynamic task queue. Based on the results of each fetched page, new tasks are added to the queue to explore promising page ranges, while other ranges are pruned or predicted.
+`GET /repos/{owner}/{repo}/stargazers/history` returns weeks in reverse chronological order, with 30 weeks per page and seven daily counts starting on Sunday. Use the response's pagination links to determine available pages.
 
-This strategy allows the application to build a sufficiently accurate star history for the chart and table while minimizing API usage and speeding up the analysis, especially for large repositories and long time ranges.
+Counts represent currently active stars grouped by their original creation dates. GitHub's week boundaries may use an aggregation timezone different from UTC, so a Sunday bucket can begin on Saturday in UTC.
 
-## Contribution Guidelines
-- Components under `src/components/ui` come from the shadcn-ui library. Avoid editing them unless upgrading the library.
-- When creating a pull request, use an English branch name. Commit messages should be written in Chinese and may use prefixes like `feat:` or `fix:` similar to existing commits.
-- Before submitting a PR, ensure your code passes ESLint checks and is formatted with Prettier, successfully passes `pnpm lint`, and builds without errors using `pnpm build`.
+An analysis processes at most six repositories concurrently. Pause stops new requests; active requests can finish. Request errors pause the analysis for manual retry. Cancellation aborts requests and releases the pause promise.

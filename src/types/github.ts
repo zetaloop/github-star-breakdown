@@ -17,15 +17,34 @@ export interface GitHubRepo {
   };
 }
 
-export interface GitHubStargazer {
-  starred_at: string;
-  user: {
-    login: string;
-  };
+export interface StarHistoryWeek {
+  week: number;
+  total: number;
+  days: number[];
 }
 
 export interface RepoStarHistoryItem {
   repoName: string;
   date: string;
   stars: number;
+}
+
+export interface TimeRange {
+  type: "year" | "all" | "custom";
+  from?: Date;
+  to?: Date;
+}
+
+export interface AnalysisProgress {
+  stage: "repos" | "history";
+  completed: number;
+  total: number;
+  requests: number;
+}
+
+export interface AnalysisResult {
+  username: string;
+  range: TimeRange;
+  repos: GitHubRepo[];
+  history: RepoStarHistoryItem[];
 }

@@ -1,271 +1,91 @@
-import { GitHubRepo, GitHubStargazer } from "@/types/github";
-import { getGitHubToken, RateLimitError } from "./github";
+export const getGitHubToken = () => localStorage.getItem("github_token");
 
-export interface RepoPageResult {
-  repos: GitHubRepo[];
-  linkHeader: string | null;
+export const setGitHubToken = (token: string) =>
+  localStorage.setItem("github_token", token.trim());
+
+export const clearGitHubToken = () => localStorage.removeItem("github_token");
+
+export class GitHubError extends Error {
+  constructor(
+    message: string,
+    public status: number
+  ) {
+    super(message);
+    this.name = "GitHubError";
+  }
 }
 
-export const fetchReposREST = async (
-  username: string,
-  page: number,
-  perPage = 100,
-  signal?: AbortSignal
-): Promise<RepoPageResult> => {
-  const token = getGitHubToken();
-  const headers = token ? { Authorization: `token ${token}` } : {};
-  const resp = await fetch(
-    `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
-    { headers, signal }
-  );
-  if (!resp.ok) {
-    if (resp.status === 403) {
-      const reset = resp.headers.get("X-RateLimit-Reset");
-      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-      let message = `GitHub API rate limit exceeded while fetching page ${page}.`;
-      if (resetTimestamp) {
-        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-      }
-      throw new RateLimitError(message, resetTimestamp);
-    }
-    throw new Error(
-      `GitHub API Error: ${resp.status} - ${resp.statusText} while fetching page ${page}`
-    );
-  }
-  const repos: GitHubRepo[] = await resp.json();
-  const linkHeader = resp.headers.get("Link");
-  return { repos, linkHeader };
-};
-
-export interface StargazerPageResult {
-  stars: GitHubStargazer[];
-  oldest: Date | null;
-  newest: Date | null;
+export interface GitHubPage<T> {
+  data: T;
+  pages: number;
 }
 
-export const fetchStargazersREST = async (
-  repoFullName: string,
-  page: number,
-  signal?: AbortSignal
-): Promise<StargazerPageResult> => {
-  const token = getGitHubToken();
-  if (!token) throw new Error("GitHub token is required");
-  const headers = {
-    Authorization: `token ${token}`,
-    Accept: "application/vnd.github.star+json",
-  };
-
-  const url = `https://api.github.com/repos/${repoFullName}/stargazers?per_page=100&page=${page}`;
-  const resp = await fetch(url, { headers, signal });
-  if (!resp.ok) {
-    if (resp.status === 403) {
-      const reset = resp.headers.get("X-RateLimit-Reset");
-      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-      let message = `GitHub API rate limit exceeded at page ${page} for ${repoFullName}.`;
-      if (resetTimestamp) {
-        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-      }
-      throw new RateLimitError(message, resetTimestamp);
-    }
-    let errorMessage = `Error fetching page ${page} for ${repoFullName}: [${resp.status}]`;
-    try {
-      const errorData = await resp.json();
-      if (errorData.message) {
-        errorMessage = `Error fetching page ${page} for ${repoFullName}: [${resp.status}] ${errorData.message}`;
-      }
-    } catch (e) {
-      const statusText = resp.statusText ? ` - ${resp.statusText}` : "";
-      errorMessage = `Error fetching page ${page} for ${repoFullName}: [${resp.status}] ${statusText}`;
-    }
-    throw new Error(errorMessage);
-  }
-  const stars: GitHubStargazer[] = await resp.json();
-  if (stars.length === 0) {
-    return { stars, oldest: null, newest: null };
-  }
-  const oldest = new Date(stars[0].starred_at);
-  const newest = new Date(stars[stars.length - 1].starred_at);
-  return { stars, oldest, newest };
-};
-
-export interface GraphQLRepoPageResult {
-  repos: GitHubRepo[];
-  endCursor: string | null;
-  hasNextPage: boolean;
-}
-
-export const fetchReposGraphQL = async (
-  username: string,
-  after?: string,
-  signal?: AbortSignal
-): Promise<GraphQLRepoPageResult> => {
-  const token = getGitHubToken();
-  if (!token) throw new Error("GitHub token is required");
-  const query = `query($login: String!, $after: String) {
-    user(login: $login) {
-      repositories(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
-        nodes {
-          databaseId
-          name
-          nameWithOwner
-          description
-          stargazerCount
-          createdAt
-          updatedAt
-          pushedAt
-          primaryLanguage { name }
-          isFork
-          url
-          owner { login avatarUrl }
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }`;
-  const resp = await fetch("https://api.github.com/graphql", {
-    method: "POST",
+export async function fetchGitHub<T>(
+  path: string,
+  signal?: AbortSignal,
+  token = getGitHubToken()
+): Promise<GitHubPage<T>> {
+  if (!token) throw new Error("请先填写 GitHub Token。");
+  const response = await fetch(`https://api.github.com/${path}`, {
     headers: {
-      Authorization: `token ${token}`,
-      "Content-Type": "application/json",
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2026-03-10",
     },
-    body: JSON.stringify({ query, variables: { login: username, after } }),
     signal,
   });
-  if (!resp.ok) {
-    if (resp.status === 403) {
-      const reset = resp.headers.get("X-RateLimit-Reset");
-      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-      let message = `GitHub GraphQL API rate limit exceeded while fetching repos for ${username}.`;
-      if (resetTimestamp) {
-        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-      }
-      throw new RateLimitError(message, resetTimestamp);
+  if (!response.ok) {
+    const detail = await response.json();
+    let message = detail.message || response.statusText;
+    if (response.status === 401) {
+      message = "GitHub Token 无效或已过期，请在设置中更新。";
+    } else if (
+      response.status === 429 ||
+      (response.status === 403 &&
+        response.headers.get("X-RateLimit-Remaining") === "0")
+    ) {
+      const reset = Number(response.headers.get("X-RateLimit-Reset"));
+      const retry = Number(response.headers.get("Retry-After"));
+      const time = retry ? Date.now() + retry * 1000 : reset * 1000;
+      message = time
+        ? `GitHub 请求额度不足，可在 ${new Date(time).toLocaleTimeString()} 后重试。`
+        : "GitHub 暂时限制了请求频率，请稍后重试。";
+    } else if (response.status === 404) {
+      message = "GitHub 找不到此用户或仓库，或当前 Token 无权访问。";
     }
-    throw new Error(
-      `GitHub GraphQL API Error: ${resp.status} - ${resp.statusText}`
-    );
+    throw new GitHubError(`${message} [${response.status}, ${path}]`, response.status);
   }
-  const data = await resp.json();
-  if (data.errors) {
-    throw new Error(
-      data.errors.map((e: { message: string }) => e.message).join("; ")
-    );
-  }
-  const repoNodes = (data.data.user?.repositories.nodes || []) as Array<{
-    databaseId: number;
-    name: string;
-    nameWithOwner: string;
-    description: string | null;
-    stargazerCount: number;
-    createdAt: string;
-    updatedAt: string;
-    pushedAt: string;
-    primaryLanguage: { name: string } | null;
-    isFork: boolean;
-    url: string;
-    owner: { login: string; avatarUrl: string };
-  }>;
-  const repos: GitHubRepo[] = repoNodes.map((node) => ({
-    id: node.databaseId,
-    name: node.name,
-    full_name: node.nameWithOwner,
-    description: node.description,
-    stargazers_count: node.stargazerCount,
-    created_at: node.createdAt,
-    updated_at: node.updatedAt,
-    pushed_at: node.pushedAt,
-    language: node.primaryLanguage ? node.primaryLanguage.name : null,
-    fork: node.isFork,
-    html_url: node.url,
-    owner: {
-      login: node.owner.login,
-      avatar_url: node.owner.avatarUrl,
-    },
-  }));
-  const pageInfo = data.data.user?.repositories.pageInfo;
-  return {
-    repos,
-    endCursor: pageInfo.endCursor,
-    hasNextPage: pageInfo.hasNextPage,
-  };
-};
-
-export interface GraphQLStargazerPageResult {
-  stars: GitHubStargazer[];
-  oldest: Date | null;
-  newest: Date | null;
-  endCursor: string | null;
-  hasNextPage: boolean;
+  const last = response.headers
+    .get("Link")
+    ?.split(",")
+    .find((link) => link.includes('rel="last"'));
+  const match = last?.match(/[?&]page=(\d+)/);
+  return { data: await response.json(), pages: match ? Number(match[1]) : 1 };
 }
 
-export const fetchStargazersGraphQL = async (
-  repoFullName: string,
-  after?: string,
-  signal?: AbortSignal
-): Promise<GraphQLStargazerPageResult> => {
-  const token = getGitHubToken();
-  if (!token) throw new Error("GitHub token is required");
-  const [owner, name] = repoFullName.split("/");
-  const query = `query($owner: String!, $name: String!, $after: String) {
-    repository(owner: $owner, name: $name) {
-      stargazers(first: 100, after: $after) {
-        edges {
-          starredAt
-          node { login }
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }`;
-  const resp = await fetch("https://api.github.com/graphql", {
-    method: "POST",
-    headers: {
-      Authorization: `token ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, variables: { owner, name, after } }),
-    signal,
-  });
-  if (!resp.ok) {
-    if (resp.status === 403) {
-      const reset = resp.headers.get("X-RateLimit-Reset");
-      const resetTimestamp = reset ? parseInt(reset, 10) : undefined;
-      let message = `GitHub GraphQL API rate limit exceeded while fetching stargazers for ${repoFullName}.`;
-      if (resetTimestamp) {
-        message += ` Try again after ${new Date(resetTimestamp * 1000).toLocaleTimeString()}.`;
-      }
-      throw new RateLimitError(message, resetTimestamp);
-    }
-    throw new Error(
-      `GitHub GraphQL API Error: ${resp.status} - ${resp.statusText}`
-    );
+export async function verifyGitHubToken(token: string): Promise<boolean> {
+  try {
+    await fetchGitHub("user", undefined, token.trim());
+    return true;
+  } catch (error) {
+    if (error instanceof GitHubError && error.status === 401) return false;
+    throw error;
   }
-  const data = await resp.json();
-  if (data.errors) {
-    throw new Error(
-      data.errors.map((e: { message: string }) => e.message).join("; ")
-    );
-  }
-  const edges = (data.data.repository?.stargazers.edges || []) as Array<{
-    starredAt: string;
-    node: { login: string };
-  }>;
-  const stars: GitHubStargazer[] = edges.map((edge) => ({
-    starred_at: edge.starredAt,
-    user: { login: edge.node.login },
-  }));
-  let oldest: Date | null = null;
-  let newest: Date | null = null;
-  if (edges.length > 0) {
-    oldest = new Date(edges[0].starredAt);
-    newest = new Date(edges[edges.length - 1].starredAt);
-  }
-  const pageInfo = data.data.repository?.stargazers.pageInfo;
-  return {
-    stars,
-    oldest,
-    newest,
-    endCursor: pageInfo.endCursor,
-    hasNextPage: pageInfo.hasNextPage,
-  };
-};
+}
+
+export interface RateLimitItem {
+  limit: number;
+  used: number;
+  reset: number;
+}
+
+export interface RateLimitInfo {
+  core: RateLimitItem;
+  graphql: RateLimitItem;
+}
+
+export async function fetchRateLimit(): Promise<RateLimitInfo | null> {
+  if (!getGitHubToken()) return null;
+  const { data } = await fetchGitHub<{ resources: RateLimitInfo }>("rate_limit");
+  return data.resources;
+}

@@ -15,7 +15,7 @@ import {
   getGitHubToken,
   setGitHubToken,
   verifyGitHubToken,
-} from "@/services/github";
+} from "@/services/githubApi";
 import { toast } from "sonner";
 
 interface ApiKeyFormProps {
