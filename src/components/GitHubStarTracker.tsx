@@ -1,16 +1,18 @@
 import { AlertCircle, ChartNoAxesCombined, ExternalLink } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useStarAnalysis } from "@/hooks/useStarAnalysis";
-import { clearGitHubToken, getGitHubToken } from "@/services/githubApi";
-import ApiKeyForm from "./ApiKeyForm";
+import { getGitHubToken } from "@/services/githubApi";
 import LoadingProgress from "./LoadingProgress";
 import RepoStatsTable from "./RepoStatsTable";
+import TokenSettings from "./TokenSettings";
 import UserRepoSearch from "./UserRepoSearch";
+import { Modal } from "./ui";
 
 const RepoStarChart = lazy(() => import("./RepoStarChart"));
 
 export default function GitHubStarTracker() {
   const [hasToken, setHasToken] = useState(!!getGitHubToken());
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const analysis = useStarAnalysis();
   const { result, status, progress, error } = analysis;
   const busy = status === "loading" || status === "paused";
@@ -31,7 +33,9 @@ export default function GitHubStarTracker() {
         </header>
       )}
       {!hasToken ? (
-        <ApiKeyForm onTokenValidated={() => setHasToken(true)} />
+        <div className="auth-panel">
+          <TokenSettings onChange={setHasToken} />
+        </div>
       ) : (
         <>
           <UserRepoSearch
@@ -42,11 +46,7 @@ export default function GitHubStarTracker() {
             isPaused={status === "paused"}
             onPauseToggle={analysis.togglePause}
             onStop={analysis.stop}
-            onResetToken={() => {
-              clearGitHubToken();
-              analysis.reset();
-              setHasToken(false);
-            }}
+            onSettings={() => setSettingsOpen(true)}
           />
           {error && (
             <div className="error-banner" role="alert">
@@ -143,6 +143,19 @@ export default function GitHubStarTracker() {
             </div>
           )}
         </>
+      )}
+      {settingsOpen && (
+        <Modal title="GitHub 设置" onClose={() => setSettingsOpen(false)}>
+          {(close) => (
+            <TokenSettings
+              onChange={(enabled) => {
+                setHasToken(enabled);
+                if (!enabled) analysis.reset();
+                close();
+              }}
+            />
+          )}
+        </Modal>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Pause, Play, Search, Square, Star } from "lucide-react";
+import { KeyRound, Pause, Play, Search, Square, Star } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import TokenInfoButton from "./TokenInfoButton";
+import { IconButton } from "./ui";
 
 type TimeRangeOption = "year" | "all" | "custom";
 
@@ -29,7 +29,7 @@ interface UserRepoSearchProps {
   isPaused?: boolean;
   onPauseToggle?: () => void;
   onStop?: () => void;
-  onResetToken?: () => void;
+  onSettings: () => void;
 }
 
 const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
@@ -38,7 +38,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
   isPaused,
   onPauseToggle,
   onStop,
-  onResetToken,
+  onSettings,
 }) => {
   const [username, setUsername] = useState<string>("");
   const [timeRange, setTimeRange] = useState<TimeRangeOption>("year");
@@ -182,9 +182,9 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
               </PopoverContent>
             </Popover>
           </div>
-          {onResetToken && (
-            <TokenInfoButton onReset={onResetToken} disabled={isLoading} />
-          )}
+          <IconButton label="GitHub 设置" onClick={onSettings}>
+            <KeyRound />
+          </IconButton>
         </div>
       </form>
     </Card>

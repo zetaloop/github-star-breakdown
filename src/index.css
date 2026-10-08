@@ -468,6 +468,252 @@ svg {
   text-underline-offset: 3px;
 }
 
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.primary-button,
+.secondary-button,
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 99px;
+  padding: 10px 17px;
+  white-space: nowrap;
+  transition:
+    background-color var(--fast),
+    opacity var(--fast),
+    transform var(--fast) var(--ease);
+}
+
+.primary-button {
+  color: var(--on-solid);
+  background: var(--solid);
+}
+
+.primary-button:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  background: var(--page);
+  color: var(--text);
+}
+
+.secondary-button:hover:not(:disabled),
+.text-button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.text-button {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.danger,
+.field-error {
+  color: var(--danger);
+}
+
+.auth-panel {
+  width: min(440px, 100%);
+  margin: 0 auto;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.password-field {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding-right: 4px;
+}
+
+.password-field input {
+  width: 0;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px;
+  background: transparent;
+  color: var(--text);
+}
+
+.field-help {
+  margin: 12px 0 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.field-error {
+  font-size: 12px;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+
+.text-link {
+  color: var(--text);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.form-actions > .danger {
+  margin-right: auto;
+}
+
+.quota-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.quota-heading,
+.connected-account,
+.quota-caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quota-heading,
+.quota-caption {
+  justify-content: space-between;
+}
+
+.connected-account {
+  font-size: 13px;
+}
+
+.connected-account img {
+  border-radius: 9px;
+}
+
+.quota-section progress {
+  width: 100%;
+  height: 6px;
+  border: 0;
+  border-radius: 99px;
+  overflow: hidden;
+  accent-color: var(--solid);
+  margin: 14px 0 8px;
+}
+
+.quota-caption {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.modal {
+  color: var(--text);
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 0;
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 48px);
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  transition:
+    opacity var(--duration),
+    transform var(--duration) var(--ease),
+    display var(--duration) allow-discrete,
+    overlay var(--duration) allow-discrete;
+}
+
+.modal[open] {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transform: none;
+}
+
+.modal::backdrop {
+  background: #0005;
+  opacity: 0;
+  transition:
+    opacity var(--duration),
+    display var(--duration) allow-discrete,
+    overlay var(--duration) allow-discrete;
+}
+
+.modal[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .modal[open] {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  .modal[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 12px 26px;
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 12px 26px 26px;
+  overflow-y: auto;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes content-in {
   from {
     opacity: 0;
@@ -505,5 +751,8 @@ svg {
   :root {
     --duration: 0.01ms;
     --fast: 0.01ms;
+  }
+  .spinning {
+    animation: none;
   }
 }

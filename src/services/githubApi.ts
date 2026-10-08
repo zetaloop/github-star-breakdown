@@ -5,16 +5,6 @@ export const setGitHubToken = (token: string) =>
 
 export const clearGitHubToken = () => localStorage.removeItem("github_token");
 
-export class GitHubError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-  ) {
-    super(message);
-    this.name = "GitHubError";
-  }
-}
-
 export interface GitHubPage<T> {
   data: T;
   pages: number;
@@ -53,10 +43,7 @@ export async function fetchGitHub<T>(
     } else if (response.status === 404) {
       message = "GitHub 找不到此用户或仓库，或当前 Token 无权访问。";
     }
-    throw new GitHubError(
-      `${message} [${response.status}, ${path}]`,
-      response.status,
-    );
+    throw new Error(`${message} [${response.status}, ${path}]`);
   }
   const last = response.headers
     .get("Link")
@@ -66,14 +53,14 @@ export async function fetchGitHub<T>(
   return { data: await response.json(), pages: match ? Number(match[1]) : 1 };
 }
 
-export async function verifyGitHubToken(token: string): Promise<boolean> {
-  try {
-    await fetchGitHub("user", undefined, token.trim());
-    return true;
-  } catch (error) {
-    if (error instanceof GitHubError && error.status === 401) return false;
-    throw error;
-  }
+export interface GitHubUser {
+  login: string;
+  avatar_url: string;
+}
+
+export async function fetchGitHubUser(token: string, signal?: AbortSignal) {
+  const { data } = await fetchGitHub<GitHubUser>("user", signal, token.trim());
+  return data;
 }
 
 export interface RateLimitItem {
@@ -82,15 +69,12 @@ export interface RateLimitItem {
   reset: number;
 }
 
-export interface RateLimitInfo {
-  core: RateLimitItem;
-  graphql: RateLimitItem;
-}
-
-export async function fetchRateLimit(): Promise<RateLimitInfo | null> {
-  if (!getGitHubToken()) return null;
-  const { data } = await fetchGitHub<{ resources: RateLimitInfo }>(
+export async function fetchRateLimit(
+  signal?: AbortSignal,
+): Promise<RateLimitItem> {
+  const { data } = await fetchGitHub<{ resources: { core: RateLimitItem } }>(
     "rate_limit",
+    signal,
   );
-  return data.resources;
+  return data.resources.core;
 }

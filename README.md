@@ -5,7 +5,7 @@ A React + Vite application that analyses how each repository contributes to a Gi
 ## Features
 
 - **GitHub authentication** – validate and store a personal access token to raise API limits.
-- **Token info popover** – view remaining requests and clear the token when needed.
+- **GitHub settings** – inspect the authenticated account and remaining requests, update or clear the token.
 - **User search** – analyse any public GitHub username.
 - **Custom date ranges** – inspect the last year, all time or a calendar‑based range.
 - **Interactive star chart** – stacked area chart with animated tooltips showing per‑repo totals.
@@ -41,11 +41,11 @@ pnpm format   # Format code and apply lint fixes
 2. Type a GitHub username and pick **Last Year**, **All Time** or **Custom** dates.
 3. Follow the progress as repositories and their star history are fetched. A failed request pauses the analysis; resume to retry it.
 4. Explore the stacked chart and stats table to see how repositories contributed to the star count.
-5. Use **Token Info** to check remaining API quota or clear the token.
+5. Open **GitHub 设置** to check remaining API quota or update the token.
 
 ## Project Structure
 
-- `src/components` – UI components such as `GitHubStarTracker`, `RepoStarChart`, `RepoStatsTable`, `LoadingProgress`, `ThemeToggle` and helpers.
+- `src/components` – analysis views, GitHub settings and shared controls.
 - `src/services/github.ts` – repository pagination and concurrent history fetching.
 - `src/services/githubApi.ts` – authenticated REST requests, token management and quota information.
 - `src/services/history.ts` – calendar dates, page selection and daily star counts.
