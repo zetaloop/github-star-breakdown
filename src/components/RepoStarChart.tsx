@@ -1,4 +1,6 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { CSSTransition, TransitionGroup } from "react-transition-group";
+import type { CSSTransitionProps } from "react-transition-group/CSSTransition";
 import {
   Area,
   AreaChart,
@@ -29,11 +31,65 @@ const compactNumber = new Intl.NumberFormat("zh-CN", {
   maximumFractionDigits: 1,
 });
 
+type TooltipEntry = TooltipContentProps["payload"][number];
+
+function TooltipItem({
+  entry,
+  rank,
+  previousRank,
+  ...transition
+}: {
+  entry: TooltipEntry;
+  rank: number;
+  previousRank: number;
+} & Pick<
+  CSSTransitionProps<HTMLLIElement>,
+  "in" | "appear" | "enter" | "exit" | "onExited"
+>) {
+  const ref = useRef<HTMLLIElement>(null);
+  const movement =
+    previousRank < 0 || previousRank === rank
+      ? ""
+      : previousRank > rank
+        ? "tooltip-up"
+        : "tooltip-down";
+  return (
+    <CSSTransition
+      {...transition}
+      nodeRef={ref}
+      classNames="tooltip-item"
+      addEndListener={(done) => {
+        void Promise.allSettled(
+          (ref.current?.getAnimations() || []).map(
+            (animation) => animation.finished,
+          ),
+        ).then(done);
+      }}
+    >
+      <li ref={ref}>
+        <div key={rank} className={`tooltip-row ${movement}`}>
+          <span className="color-dot" style={{ background: entry.color }} />
+          <span className="tooltip-name">{entry.name}</span>
+          <span>{Number(entry.value).toLocaleString()}</span>
+        </div>
+      </li>
+    </CSSTransition>
+  );
+}
+
 function StarTooltip({ active, payload, label }: TooltipContentProps) {
+  const entries = useMemo(
+    () =>
+      payload
+        .filter((entry) => Number(entry.value) > 0)
+        .toSorted((a, b) => Number(b.value) - Number(a.value)),
+    [payload],
+  );
+  const order = useRef<TooltipEntry["dataKey"][]>([]);
+  useEffect(() => {
+    order.current = entries.map((entry) => entry.dataKey);
+  }, [entries]);
   if (!active || !payload.length || typeof label !== "number") return null;
-  const entries = payload
-    .filter((entry) => Number(entry.value) > 0)
-    .toSorted((a, b) => Number(b.value) - Number(a.value));
   return (
     <div className="chart-tooltip">
       <header>
@@ -44,15 +100,16 @@ function StarTooltip({ active, payload, label }: TooltipContentProps) {
             .toLocaleString()}
         </strong>
       </header>
-      <ul>
-        {entries.map((entry) => (
-          <li key={entry.name}>
-            <span className="color-dot" style={{ background: entry.color }} />
-            <span className="tooltip-name">{entry.name}</span>
-            <span>{Number(entry.value).toLocaleString()}</span>
-          </li>
+      <TransitionGroup component="ul" className="tooltip-list">
+        {entries.map((entry, rank) => (
+          <TooltipItem
+            key={String(entry.dataKey)}
+            entry={entry}
+            rank={rank}
+            previousRank={order.current.indexOf(entry.dataKey)}
+          />
         ))}
-      </ul>
+      </TransitionGroup>
     </div>
   );
 }

@@ -918,10 +918,73 @@ fieldset {
 }
 
 .chart-tooltip li {
+  padding: 3px 0;
+}
+
+.tooltip-row {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 3px 0;
+  width: 100%;
+}
+
+.tooltip-list {
+  position: relative;
+}
+
+.tooltip-item-enter {
+  opacity: 0;
+  transform: translateX(2rem);
+}
+
+.tooltip-item-enter-active {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--fast),
+    transform var(--fast) var(--ease);
+}
+
+.tooltip-item-exit {
+  opacity: 1;
+  transform: none;
+}
+
+.tooltip-item-exit-active {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  opacity: 0;
+  transform: translateX(2rem);
+  transition:
+    opacity var(--fast),
+    transform var(--fast) var(--ease);
+}
+
+.tooltip-up {
+  animation: tooltip-up var(--fast) var(--ease) both;
+}
+
+.tooltip-down {
+  animation: tooltip-down var(--fast) var(--ease) both;
+}
+
+@keyframes tooltip-up {
+  from {
+    transform: translateY(0.75rem);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes tooltip-down {
+  from {
+    transform: translateY(-0.75rem);
+  }
+  to {
+    transform: none;
+  }
 }
 
 .tooltip-name {
