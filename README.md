@@ -1,6 +1,6 @@
 # GitHub Star Growth Mapper
 
-A React + Vite application that analyses how each repository contributes to a GitHub user's stars. It fetches data via the GitHub API and visualises growth with Recharts and Tailwind CSS. All tooling is managed with Bun.
+A React + Vite application that analyses how each repository contributes to a GitHub user's stars. It fetches data via the GitHub API and visualises growth with Recharts and Tailwind CSS. Dependencies are managed with pnpm.
 
 ## Features
 
@@ -17,19 +17,19 @@ Behind the scenes a concurrency pool and binary search strategy speed up fetchin
 
 ## Installation
 
-Install dependencies with Bun and start the development server:
+Install dependencies with pnpm and start the development server:
 
 ```bash
-bun install
-bun run dev
+pnpm install
+pnpm dev
 ```
 
 Additional commands:
 
 ```bash
-bun run build    # Build for production
-bun run preview  # Preview the production build
-bun run lint     # Run ESLint
+pnpm build    # Build for production
+pnpm preview  # Preview the production build
+pnpm lint     # Run ESLint
 ```
 
 ## Usage
@@ -52,7 +52,7 @@ Configuration files like `vite.config.ts` and `tailwind.config.ts` define the bu
 
 ## Contributing
 
-Run `bun run lint` before submitting changes. Components in `src/components/ui` originate from shadcn‑ui and generally should not be modified.
+Run `pnpm lint` before submitting changes. Components in `src/components/ui` originate from shadcn‑ui and generally should not be modified.
 
 ---
 

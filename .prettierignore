@@ -6,7 +6,7 @@ node_modules
 
 # Ignore lock files
 package-lock.json
-bun.lockb
+pnpm-lock.yaml
 yarn.lock
 
 # Ignore vendored libraries

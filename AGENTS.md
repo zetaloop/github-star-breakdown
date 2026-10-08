@@ -2,7 +2,7 @@
 
 > Note: This document is intended as a guide for LLM based AI programming agents. It provides essential context about the project structure, development practices, and key architectural decisions to help agents understand and interact with the codebase effectively.
 
-This repository contains a React application built with Vite and Bun. The app visualizes the star history of a GitHub user's repositories. Key directories:
+This repository contains a React application built with Vite and pnpm. The app visualizes the star history of a GitHub user's repositories. Key directories:
 
 - `src/`
   - `components/` – React components including `GitHubStarTracker` (main component), `RepoStarChart`, `RepoStatsTable`, UI primitives under `ui/`, and other helpers.
@@ -16,23 +16,23 @@ This repository contains a React application built with Vite and Bun. The app vi
 - `tailwind.config.ts`, `postcss.config.js` – Tailwind CSS setup.
 
 ## Installing Dependencies
-Use Bun for package management:
+Use pnpm for package management:
 ```bash
-bun install
+pnpm install
 ```
 
 ## Useful Scripts
-Run scripts via Bun:
+Run scripts via pnpm:
 ```bash
-bun run dev        # Start development server
-bun run build      # Build for production
-bun run lint --fix # Run ESLint (No output if everything is fine)
-bun run preview    # Preview production build
+pnpm dev        # Start development server
+pnpm build      # Build for production
+pnpm lint --fix # Run ESLint (No output if everything is fine)
+pnpm preview    # Preview production build
 ```
 
 ## Development Notes
 - Code formatting follows the settings in `.prettierrc.json`.
-- ESLint is configured in `eslint.config.js`. When modifying TypeScript/React code, run `bun run lint` before committing.
+- ESLint is configured in `eslint.config.js`. When modifying TypeScript/React code, run `pnpm lint` before committing.
 - Main entry is `src/main.tsx`; React app is rendered in `index.html` inside the `#root` element.
 - The main application logic is encapsulated within the `GitHubStarTracker` component. It manages state for the user input, loading process, API data, and error handling.
 - API interactions are split across services:
@@ -58,5 +58,4 @@ This strategy allows the application to build a sufficiently accurate star histo
 ## Contribution Guidelines
 - Components under `src/components/ui` come from the shadcn-ui library. Avoid editing them unless upgrading the library.
 - When creating a pull request, use an English branch name. Commit messages should be written in Chinese and may use prefixes like `feat:` or `fix:` similar to existing commits.
-- Before submitting a PR, ensure your code passes ESLint checks and is formatted with Prettier, successfully passes `bun run lint` (install ESLint if necessary), and builds without errors using `bun run build`.
-- Avoid committing `bun.lockb` or other binary files, as they may cause issues with the PR submission system.
+- Before submitting a PR, ensure your code passes ESLint checks and is formatted with Prettier, successfully passes `pnpm lint`, and builds without errors using `pnpm build`.
