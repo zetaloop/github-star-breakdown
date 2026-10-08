@@ -18,7 +18,7 @@ interface AnalysisCallbacks {
 export async function analyzeUser(
   username: string,
   range: TimeRange,
-  { request, onRepos, onHistory, onProgress }: AnalysisCallbacks
+  { request, onRepos, onHistory, onProgress }: AnalysisCallbacks,
 ) {
   const repos: GitHubRepo[] = [];
   const repoPath = `users/${encodeURIComponent(username)}/repos?per_page=100&sort=full_name`;
@@ -42,16 +42,30 @@ export async function analyzeUser(
         const initial = await request<StarHistoryWeek[]>(path);
         const weeks: StarHistoryWeek[] = [];
         if (initial.data.length) {
-          const pages = historyPages(initial.data[0].week, initial.pages, bounds);
+          const pages = historyPages(
+            initial.data[0].week,
+            initial.pages,
+            bounds,
+          );
           if (pages.first === 1) weeks.push(...initial.data);
-          for (let page = Math.max(2, pages.first); page <= pages.last; page++) {
-            const result = await request<StarHistoryWeek[]>(`${path}?page=${page}`);
+          for (
+            let page = Math.max(2, pages.first);
+            page <= pages.last;
+            page++
+          ) {
+            const result = await request<StarHistoryWeek[]>(
+              `${path}?page=${page}`,
+            );
             weeks.push(...result.data);
           }
         }
         onHistory(dailyHistory(repo.name, weeks, bounds));
-        onProgress({ stage: "history", completed: ++completed, total: repos.length });
+        onProgress({
+          stage: "history",
+          completed: ++completed,
+          total: repos.length,
+        });
       }
-    })
+    }),
   );
 }

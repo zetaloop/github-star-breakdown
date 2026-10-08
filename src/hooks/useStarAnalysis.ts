@@ -28,7 +28,7 @@ export function useStarAnalysis() {
       current.current?.controller.abort();
       current.current?.release();
     },
-    []
+    [],
   );
 
   async function search(username: string, range: TimeRange) {
@@ -90,8 +90,9 @@ export function useStarAnalysis() {
           setResult({ username, range, repos, history: [] });
         },
         onHistory(history) {
-          setResult((value) =>
-            value && { ...value, history: [...value.history, ...history] }
+          setResult(
+            (value) =>
+              value && { ...value, history: [...value.history, ...history] },
           );
         },
         onProgress(value) {

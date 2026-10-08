@@ -5,7 +5,10 @@ interface LoadingProgressProps {
   status: string;
 }
 
-export default function LoadingProgress({ progress, status }: LoadingProgressProps) {
+export default function LoadingProgress({
+  progress,
+  status,
+}: LoadingProgressProps) {
   const { stage, completed, total, requests } = progress;
   const label =
     status === "complete"
@@ -23,7 +26,8 @@ export default function LoadingProgress({ progress, status }: LoadingProgressPro
         <span>{label}</span>
         <span>
           {completed}/{total || "?"} {stage === "repos" ? "页" : "个仓库"}
-          {" · "}{requests} 次请求
+          {" · "}
+          {requests} 次请求
         </span>
       </div>
       {(status === "loading" || status === "paused") && (

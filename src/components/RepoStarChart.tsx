@@ -1,12 +1,13 @@
-import { useMemo, createRef, useRef, useEffect } from "react";
+import { createRef, useEffect, useMemo, useRef } from "react";
+import { CSSTransition, TransitionGroup } from "react-transition-group";
 import {
-  ResponsiveContainer,
-  AreaChart,
   Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
 } from "recharts";
 import {
   Card,
@@ -15,9 +16,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { TransitionGroup, CSSTransition } from "react-transition-group";
-import { RepoStarHistoryItem } from "@/types/github";
 import { cn } from "@/lib/utils";
+import type { RepoStarHistoryItem } from "@/types/github";
 import "./TooltipAnimation.css";
 
 interface RepoStarChartProps {
@@ -135,7 +135,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
 
   const maxStars = useMemo(
     () => Math.max(0, ...Array.from(starTotals.values())),
-    [starTotals]
+    [starTotals],
   );
 
   // Basic color palette with handpicked colors
@@ -194,9 +194,6 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
     // Use palette color as base
     const idx = hash % BASE_PALETTE.length;
     const { h: baseH, s: baseS, l: baseL } = hexToHSL(BASE_PALETTE[idx]);
-
-    // Generate variants using different hash derivatives
-    const variant = Math.floor(hash / BASE_PALETTE.length);
 
     // Create more color variation with multiple hash bits
     const hashPart1 = hash & 0xff;
@@ -263,7 +260,6 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
           <TransitionGroup component="ul" className="list-none p-0 m-0">
             {reposAtDate.map((entry, index) => {
               const nodeRef = createRef<HTMLLIElement>();
-              const displayValue = entry.value;
               return (
                 <CSSTransition
                   key={entry.dataKey}
@@ -368,11 +364,16 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
       </CardHeader>
       <CardContent>
         <div className="h-[400px] relative">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            style={{ overflow: "visible" }}
+          >
             <AreaChart
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               accessibilityLayer
+              style={{ overflow: "visible" }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
@@ -385,6 +386,7 @@ const RepoStarChart: React.FC<RepoStarChartProps> = ({
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
+                wrapperStyle={{ zIndex: 20 }}
                 content={<CustomTooltip />}
                 animationDuration={0}
                 allowEscapeViewBox={{ x: false, y: true }}

@@ -38,12 +38,14 @@ export function weekStart(timestamp: number): number {
 export function historyPages(
   newest: number,
   pages: number,
-  bounds: ReturnType<typeof dateBounds>
+  bounds: ReturnType<typeof dateBounds>,
 ) {
   const pageAt = (date: string) =>
     Math.max(
       1,
-      Math.floor(Math.ceil((weekStart(newest) - Date.parse(date)) / (7 * day)) / 30) + 1
+      Math.floor(
+        Math.ceil((weekStart(newest) - Date.parse(date)) / (7 * day)) / 30,
+      ) + 1,
     );
   return {
     first: pageAt(bounds.to),
@@ -54,7 +56,7 @@ export function historyPages(
 export function dailyHistory(
   repoName: string,
   weeks: StarHistoryWeek[],
-  bounds: ReturnType<typeof dateBounds>
+  bounds: ReturnType<typeof dateBounds>,
 ): RepoStarHistoryItem[] {
   return weeks
     .flatMap((week) =>
@@ -64,7 +66,7 @@ export function dailyHistory(
           .toISOString()
           .slice(0, 10),
         stars,
-      }))
+      })),
     )
     .filter((item) => item.date >= bounds.from && item.date <= bounds.to)
     .sort((a, b) => a.date.localeCompare(b.date));

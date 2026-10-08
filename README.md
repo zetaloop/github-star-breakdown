@@ -31,7 +31,8 @@ Additional commands:
 ```bash
 pnpm build    # Build for production
 pnpm preview  # Preview the production build
-pnpm lint     # Run ESLint
+pnpm check    # Run Biome and TypeScript
+pnpm format   # Format code and apply lint fixes
 ```
 
 ## Usage
@@ -57,7 +58,7 @@ Configuration files like `vite.config.ts` and `tailwind.config.ts` define the bu
 
 ## Contributing
 
-Run `pnpm lint` before submitting changes. Components in `src/components/ui` originate from shadcn‑ui and generally should not be modified.
+Run `pnpm format`, `pnpm check` and `pnpm build` before submitting changes. Biome is provided by the system PATH. Components in `src/components/ui` originate from shadcn-ui.
 
 ---
 

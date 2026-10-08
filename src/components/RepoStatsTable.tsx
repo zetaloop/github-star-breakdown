@@ -1,15 +1,15 @@
-import React from "react";
+import { Star } from "lucide-react";
+import type React from "react";
 import { Card } from "@/components/ui/card";
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { GitHubRepo } from "@/types/github";
-import { Star } from "lucide-react";
+import type { GitHubRepo } from "@/types/github";
 
 interface RepoStatsTableProps {
   repos: GitHubRepo[];
@@ -50,7 +50,7 @@ const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
   const reposToDisplay =
     (timeRange === "year" || timeRange === "custom") && yearlyIncrements
       ? sortedRepos.filter(
-          (repo) => (yearlyIncrements.get(repo.name) || 0) !== 0
+          (repo) => (yearlyIncrements.get(repo.name) || 0) !== 0,
         )
       : sortedRepos;
 

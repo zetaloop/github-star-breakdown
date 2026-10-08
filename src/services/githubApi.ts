@@ -8,7 +8,7 @@ export const clearGitHubToken = () => localStorage.removeItem("github_token");
 export class GitHubError extends Error {
   constructor(
     message: string,
-    public status: number
+    public status: number,
   ) {
     super(message);
     this.name = "GitHubError";
@@ -23,7 +23,7 @@ export interface GitHubPage<T> {
 export async function fetchGitHub<T>(
   path: string,
   signal?: AbortSignal,
-  token = getGitHubToken()
+  token = getGitHubToken(),
 ): Promise<GitHubPage<T>> {
   if (!token) throw new Error("请先填写 GitHub Token。");
   const response = await fetch(`https://api.github.com/${path}`, {
@@ -53,7 +53,10 @@ export async function fetchGitHub<T>(
     } else if (response.status === 404) {
       message = "GitHub 找不到此用户或仓库，或当前 Token 无权访问。";
     }
-    throw new GitHubError(`${message} [${response.status}, ${path}]`, response.status);
+    throw new GitHubError(
+      `${message} [${response.status}, ${path}]`,
+      response.status,
+    );
   }
   const last = response.headers
     .get("Link")
@@ -86,6 +89,8 @@ export interface RateLimitInfo {
 
 export async function fetchRateLimit(): Promise<RateLimitInfo | null> {
   if (!getGitHubToken()) return null;
-  const { data } = await fetchGitHub<{ resources: RateLimitInfo }>("rate_limit");
+  const { data } = await fetchGitHub<{ resources: RateLimitInfo }>(
+    "rate_limit",
+  );
   return data.resources;
 }

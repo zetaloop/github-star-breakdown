@@ -9,11 +9,12 @@ Use the pnpm version declared in `package.json`.
 ```sh
 pnpm install
 pnpm dev
-pnpm lint --fix
+pnpm format
+pnpm check
 pnpm build
 ```
 
-Commit messages use Chinese Conventional Commits. Changes should follow the surrounding source style. Components under `src/components/ui` originate from shadcn-ui.
+Commit messages use Chinese Conventional Commits. Biome from the system PATH handles formatting and linting; TypeScript checks the application and Vite configuration. Components under `src/components/ui` originate from shadcn-ui.
 
 ## Structure
 

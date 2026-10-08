@@ -1,12 +1,12 @@
-import { Moon, Sun, CloudSun } from "lucide-react";
+import { CloudSun, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export default function ThemeToggle() {
@@ -19,19 +19,19 @@ export default function ThemeToggle() {
           <Sun
             className={cn(
               "h-[1.2rem] w-[1.2rem] transition-all",
-              theme === "light" ? "rotate-0 scale-100" : "-rotate-90 scale-0"
+              theme === "light" ? "rotate-0 scale-100" : "-rotate-90 scale-0",
             )}
           />
           <Moon
             className={cn(
               "absolute h-[1.2rem] w-[1.2rem] transition-all",
-              theme === "dark" ? "rotate-0 scale-100" : "rotate-90 scale-0"
+              theme === "dark" ? "rotate-0 scale-100" : "rotate-90 scale-0",
             )}
           />
           <CloudSun
             className={cn(
               "absolute h-[1.2rem] w-[1.2rem] transition-all",
-              theme === "system" ? "rotate-0 scale-100" : "-rotate-90 scale-0"
+              theme === "system" ? "rotate-0 scale-100" : "-rotate-90 scale-0",
             )}
           />
           <span className="sr-only">Toggle theme</span>

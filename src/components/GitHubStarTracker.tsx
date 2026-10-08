@@ -1,13 +1,13 @@
+import { AlertCircle } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useStarAnalysis } from "@/hooks/useStarAnalysis";
+import { clearGitHubToken, getGitHubToken } from "@/services/githubApi";
 import ApiKeyForm from "./ApiKeyForm";
-import UserRepoSearch from "./UserRepoSearch";
+import LoadingProgress from "./LoadingProgress";
 import RepoStarChart from "./RepoStarChart";
 import RepoStatsTable from "./RepoStatsTable";
-import LoadingProgress from "./LoadingProgress";
-import { getGitHubToken, clearGitHubToken } from "@/services/githubApi";
-import { useStarAnalysis } from "@/hooks/useStarAnalysis";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import UserRepoSearch from "./UserRepoSearch";
 
 export default function GitHubStarTracker() {
   const [hasToken, setHasToken] = useState(!!getGitHubToken());

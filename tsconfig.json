@@ -10,8 +10,11 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "skipLibCheck": true,
-    "strict": false
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true
   },
   "include": ["src", "vite.config.ts"]
 }

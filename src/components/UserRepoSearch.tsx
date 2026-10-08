@@ -1,26 +1,20 @@
-import React, { useState } from "react";
+import { format } from "date-fns";
+import { Pause, Play, Search, Square, Star } from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { DateRange } from "react-day-picker";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import {
-  Search,
-  Star,
-  Calendar as CalendarIcon,
-  Pause,
-  Play,
-  Square,
-} from "lucide-react";
-import { toast } from "sonner";
 import TokenInfoButton from "./TokenInfoButton";
 
 type TimeRangeOption = "year" | "all" | "custom";
@@ -29,7 +23,7 @@ interface UserRepoSearchProps {
   onSearch: (
     username: string,
     timeRange: TimeRangeOption,
-    customRange?: DateRange
+    customRange?: DateRange,
   ) => void;
   isLoading: boolean;
   isPaused?: boolean;
@@ -49,7 +43,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
   const [username, setUsername] = useState<string>("");
   const [timeRange, setTimeRange] = useState<TimeRangeOption>("year");
   const [customRange, setCustomRange] = useState<DateRange | undefined>(
-    undefined
+    undefined,
   );
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -62,7 +56,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
     if (timeRange === "custom") {
       if (!customRange?.from || !customRange?.to) {
         toast.error(
-          "Invalid custom date range. Both start and end dates are required."
+          "Invalid custom date range. Both start and end dates are required.",
         );
         setTimeRange("all");
         setCustomRange(undefined);
@@ -74,7 +68,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
     onSearch(
       username.trim(),
       timeRange,
-      timeRange === "custom" ? customRange : undefined
+      timeRange === "custom" ? customRange : undefined,
     );
   };
 
@@ -157,7 +151,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     "focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
                     "text-accent-foreground bg-transparent h-10 px-3 w-auto",
-                    timeRange === "custom" && "bg-accent"
+                    timeRange === "custom" && "bg-accent",
                   )}
                   onClick={() => {
                     setTimeRange("custom");
@@ -166,7 +160,7 @@ const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
                   {customRange?.from && customRange?.to
                     ? `${format(customRange.from, "PPP")} - ${format(
                         customRange.to,
-                        "PPP"
+                        "PPP",
                       )}`
                     : customRange?.from
                       ? format(customRange.from, "PPP")

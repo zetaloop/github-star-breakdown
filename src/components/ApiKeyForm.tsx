@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import { AlertCircle } from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -10,13 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
-import {
-  getGitHubToken,
-  setGitHubToken,
-  verifyGitHubToken,
-} from "@/services/githubApi";
-import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { setGitHubToken, verifyGitHubToken } from "@/services/githubApi";
 
 interface ApiKeyFormProps {
   onTokenValidated: () => void;

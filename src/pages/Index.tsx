@@ -1,3 +1,7 @@
+import GitHubStarTracker from "@/components/GitHubStarTracker";
+import { GitHubIcon } from "@/components/icons/GitHubIcon";
+import RepoButton from "@/components/RepoButton";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   Card,
   CardContent,
@@ -5,10 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import GitHubStarTracker from "@/components/GitHubStarTracker";
-import { GitHubIcon } from "@/components/icons/GitHubIcon";
-import ThemeToggle from "@/components/ThemeToggle";
-import RepoButton from "@/components/RepoButton";
 
 const Index = () => {
   return (

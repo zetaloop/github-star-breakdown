@@ -1,22 +1,23 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { differenceInSeconds, formatDistanceStrict } from "date-fns";
 import { RefreshCcw } from "lucide-react";
+import type React from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  fetchRateLimit,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
+import {
   clearGitHubToken,
+  fetchRateLimit,
   setGitHubToken,
   verifyGitHubToken,
 } from "@/services/githubApi";
-import { formatDistanceStrict, differenceInSeconds } from "date-fns";
-import { toast } from "sonner";
 
 interface TokenInfoButtonProps {
   onReset?: () => void;
@@ -75,7 +76,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
         await fetchAndSetData();
       }
     },
-    [fetchAndSetData]
+    [fetchAndSetData],
   );
 
   const handleReset = () => {
@@ -121,7 +122,7 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
   const setupTimeLeft = useCallback(
     (
       resetValue: number | null,
-      setValue: React.Dispatch<React.SetStateAction<string>>
+      setValue: React.Dispatch<React.SetStateAction<string>>,
     ) => {
       if (resetValue === null) {
         setValue("");
@@ -142,26 +143,26 @@ const TokenInfoButton: React.FC<TokenInfoButtonProps> = ({
           formatDistanceStrict(resetDate, now, {
             unit: "second",
             addSuffix: true,
-          })
+          }),
         );
       } else if (secondsRemaining < 3600) {
         setValue(
           formatDistanceStrict(resetDate, now, {
             unit: "minute",
             addSuffix: true,
-          })
+          }),
         );
       } else {
         setValue(
           formatDistanceStrict(resetDate, now, {
             unit: "hour",
             addSuffix: true,
-          })
+          }),
         );
       }
       return secondsRemaining;
     },
-    [handleOpenChange]
+    [handleOpenChange],
   );
 
   useEffect(() => {
