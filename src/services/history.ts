@@ -23,8 +23,15 @@ export function dateBounds(range: TimeRange, now = new Date()) {
         : undefined;
   return {
     from: from ? dateKey(from) : "1970-01-01",
-    to: dateKey(range.type === "custom" && range.to ? range.to : now),
+    to: dateKey(range.type === "custom" ? range.to : now),
   };
+}
+
+export function rangeLabel(range: TimeRange): string {
+  if (range.type === "custom") {
+    return `${dateKey(range.from)} — ${dateKey(range.to)}`;
+  }
+  return range.type === "year" ? "最近一年" : "全部历史";
 }
 
 export function weekStart(timestamp: number): number {

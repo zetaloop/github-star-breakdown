@@ -1,194 +1,116 @@
-import { format } from "date-fns";
-import { KeyRound, Pause, Play, Search, Square, Star } from "lucide-react";
-import type React from "react";
-import { useState } from "react";
-import type { DateRange } from "react-day-picker";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { cn } from "@/lib/utils";
+  ArrowRight,
+  KeyRound,
+  LoaderCircle,
+  Pause,
+  Play,
+  Search,
+  Square,
+} from "lucide-react";
+import { useState } from "react";
+import { rangeLabel } from "@/services/history";
+import type { AnalysisResult, TimeRange } from "@/types/github";
+import DateRangePicker from "./DateRangePicker";
 import { IconButton } from "./ui";
 
-type TimeRangeOption = "year" | "all" | "custom";
-
 interface UserRepoSearchProps {
-  onSearch: (
-    username: string,
-    timeRange: TimeRangeOption,
-    customRange?: DateRange,
-  ) => void;
+  onSearch: (username: string, range: TimeRange) => void;
   isLoading: boolean;
-  isPaused?: boolean;
-  onPauseToggle?: () => void;
-  onStop?: () => void;
+  isPaused: boolean;
+  hasError: boolean;
+  result: AnalysisResult | null;
+  onPauseToggle: () => void;
+  onStop: () => void;
   onSettings: () => void;
 }
 
-const UserRepoSearch: React.FC<UserRepoSearchProps> = ({
+export default function UserRepoSearch({
   onSearch,
   isLoading,
   isPaused,
+  hasError,
+  result,
   onPauseToggle,
   onStop,
   onSettings,
-}) => {
-  const [username, setUsername] = useState<string>("");
-  const [timeRange, setTimeRange] = useState<TimeRangeOption>("year");
-  const [customRange, setCustomRange] = useState<DateRange | undefined>(
-    undefined,
-  );
-  const [popoverOpen, setPopoverOpen] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim()) {
-      return;
-    }
-
-    if (timeRange === "custom") {
-      if (!customRange?.from || !customRange?.to) {
-        toast.error(
-          "Invalid custom date range. Both start and end dates are required.",
-        );
-        setTimeRange("all");
-        setCustomRange(undefined);
-        setPopoverOpen(false);
-        return;
-      }
-    }
-
-    onSearch(
-      username.trim(),
-      timeRange,
-      timeRange === "custom" ? customRange : undefined,
-    );
-  };
-
+}: UserRepoSearchProps) {
+  const [username, setUsername] = useState("");
+  const [range, setRange] = useState<TimeRange>({ type: "year" });
+  const login = username.trim().replace(/^@/, "");
+  const changed =
+    result &&
+    (login.toLowerCase() !== result.username.toLowerCase() ||
+      rangeLabel(range) !== rangeLabel(result.range));
   return (
-    <Card className="p-4">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-grow">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-            <Input
-              placeholder="Enter GitHub username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="pl-8"
-              type="text"
-              autoComplete="off"
-            />
-          </div>
-          <Button
-            type="submit"
-            disabled={isLoading || !username.trim()}
-            className="bg-github-blue hover:bg-github-darkBlue text-destructive-foreground"
-          >
-            <Star className="mr-2 h-4 w-4" />
-            {isLoading ? "Loading..." : "Analyze Stars"}
-          </Button>
-          {isLoading && (
-            <>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                onClick={onPauseToggle}
-              >
-                {isPaused ? (
-                  <Play className="h-4 w-4" />
-                ) : (
-                  <Pause className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="destructive"
-                onClick={onStop}
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-            </>
+    <form
+      className="search-panel"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (login && !isLoading) onSearch(login, range);
+      }}
+    >
+      <div className="search-row">
+        <div className="username-field">
+          <Search size={19} />
+          <input
+            type="text"
+            name="username"
+            aria-label="GitHub 用户名"
+            placeholder="GitHub 用户名"
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+            disabled={isLoading}
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+        </div>
+        <button
+          className="primary-button"
+          type="submit"
+          disabled={isLoading || !login}
+        >
+          {isLoading ? (
+            <LoaderCircle size={17} className={isPaused ? "" : "spinning"} />
+          ) : (
+            <ArrowRight size={17} />
           )}
-        </div>
-
-        <div className="mt-2 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-1">
-            {" "}
-            <ToggleGroup
-              type="single"
-              value={
-                timeRange === "year" || timeRange === "all" ? timeRange : ""
-              }
-              onValueChange={(val) => {
-                if (val === "year" || val === "all") {
-                  setTimeRange(val as TimeRangeOption);
-                  setCustomRange(undefined);
-                  setPopoverOpen(false);
-                }
-              }}
-              className="gap-1"
+          <span>
+            {isPaused ? "已暂停" : isLoading ? "正在分析" : "分析星标"}
+          </span>
+        </button>
+        <IconButton label="GitHub 设置" onClick={onSettings}>
+          <KeyRound />
+        </IconButton>
+      </div>
+      <div className="search-options">
+        <DateRangePicker
+          value={range}
+          onChange={setRange}
+          disabled={isLoading}
+        />
+        {isLoading && (
+          <div className="run-controls">
+            <button
+              type="button"
+              className="text-button"
+              onClick={onPauseToggle}
             >
-              <ToggleGroupItem value="year">Last Year</ToggleGroupItem>
-              <ToggleGroupItem value="all">All Time</ToggleGroupItem>
-            </ToggleGroup>
-            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  aria-label="Custom date range"
-                  className={cn(
-                    "inline-flex items-center justify-center rounded-md text-sm font-medium",
-                    "ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    "focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-                    "text-accent-foreground bg-transparent h-10 px-3 w-auto",
-                    timeRange === "custom" && "bg-accent",
-                  )}
-                  onClick={() => {
-                    setTimeRange("custom");
-                  }}
-                >
-                  {customRange?.from && customRange?.to
-                    ? `${format(customRange.from, "PPP")} - ${format(
-                        customRange.to,
-                        "PPP",
-                      )}`
-                    : customRange?.from
-                      ? format(customRange.from, "PPP")
-                      : "Custom"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={customRange?.from}
-                  selected={customRange}
-                  onSelect={(range) => {
-                    setCustomRange(range);
-                    setTimeRange("custom");
-                  }}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
+              {isPaused ? <Play size={15} /> : <Pause size={15} />}
+              {isPaused ? (hasError ? "重试" : "恢复") : "暂停"}
+            </button>
+            <IconButton label="停止分析" onClick={onStop}>
+              <Square size={15} />
+            </IconButton>
           </div>
-          <IconButton label="GitHub 设置" onClick={onSettings}>
-            <KeyRound />
-          </IconButton>
-        </div>
-      </form>
-    </Card>
+        )}
+      </div>
+      {changed && !isLoading && (
+        <p className="search-note">
+          筛选条件已更改，下方显示上一次分析的结果。
+        </p>
+      )}
+    </form>
   );
-};
-
-export default UserRepoSearch;
+}

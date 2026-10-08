@@ -29,11 +29,9 @@ export interface RepoStarHistoryItem {
   stars: number;
 }
 
-export interface TimeRange {
-  type: "year" | "all" | "custom";
-  from?: Date;
-  to?: Date;
-}
+export type TimeRange =
+  | { type: "year" | "all" }
+  | { type: "custom"; from: Date; to: Date };
 
 export interface AnalysisProgress {
   stage: "repos" | "history";

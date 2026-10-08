@@ -38,7 +38,7 @@ pnpm format   # Format code and apply lint fixes
 ## Usage
 
 1. Launch the app and enter your GitHub personal access token. Public repository history requires public metadata access.
-2. Type a GitHub username and pick **Last Year**, **All Time** or **Custom** dates.
+2. Type a GitHub username and pick **最近一年**, **全部历史** or **自定义日期**, then select **分析星标**. The result heading shows the range used for that analysis.
 3. Follow the progress as repositories and their star history are fetched. A failed request pauses the analysis; resume to retry it.
 4. Explore the stacked chart and stats table to see how repositories contributed to the star count.
 5. Open **GitHub 设置** to check remaining API quota or update the token.

@@ -2,6 +2,7 @@ import { AlertCircle, ChartNoAxesCombined, ExternalLink } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useStarAnalysis } from "@/hooks/useStarAnalysis";
 import { getGitHubToken } from "@/services/githubApi";
+import { rangeLabel } from "@/services/history";
 import LoadingProgress from "./LoadingProgress";
 import RepoStatsTable from "./RepoStatsTable";
 import TokenSettings from "./TokenSettings";
@@ -39,11 +40,11 @@ export default function GitHubStarTracker() {
       ) : (
         <>
           <UserRepoSearch
-            onSearch={(username, type, range) =>
-              analysis.search(username, { type, ...range })
-            }
+            onSearch={analysis.search}
             isLoading={busy}
             isPaused={status === "paused"}
+            hasError={!!error}
+            result={result}
             onPauseToggle={analysis.togglePause}
             onStop={analysis.stop}
             onSettings={() => setSettingsOpen(true)}
@@ -77,13 +78,7 @@ export default function GitHubStarTracker() {
                     <h1>{result.username}</h1>
                     <ExternalLink size={15} />
                   </a>
-                  <p className="muted">
-                    {result.range.type === "all"
-                      ? "全部历史"
-                      : result.range.type === "year"
-                        ? "最近一年"
-                        : "自定义时间范围"}
-                  </p>
+                  <p className="muted">{rangeLabel(result.range)}</p>
                 </div>
               </header>
               <dl className="overview">

@@ -3,12 +3,10 @@ import { ThemeProvider } from "next-themes";
 import GitHubStarTracker from "./components/GitHubStarTracker";
 import { GitHubIcon } from "./components/icons/GitHubIcon";
 import ThemeToggle from "./components/ThemeToggle";
-import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <Toaster />
       <header className="app-header">
         <a className="brand" href="/" aria-label="星标增长首页">
           <span className="brand-mark">

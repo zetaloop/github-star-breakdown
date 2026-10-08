@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import {
   type ComponentProps,
+  type CSSProperties,
   type ReactNode,
   useEffect,
   useId,
@@ -23,6 +24,51 @@ export function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+export function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T | undefined;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+}) {
+  const name = useId();
+  const selected = options.findIndex((option) => option.value === value);
+  return (
+    <fieldset
+      className="segmented"
+      disabled={disabled}
+      data-selected={selected >= 0}
+      style={
+        {
+          "--count": options.length,
+          "--selected": Math.max(0, selected),
+        } as CSSProperties
+      }
+    >
+      <legend className="sr-only">{label}</legend>
+      {options.map((option) => (
+        <label key={option.value}>
+          <input
+            className="sr-only"
+            type="radio"
+            name={name}
+            value={option.value}
+            checked={value === option.value}
+            onChange={() => onChange(option.value)}
+          />
+          <span>{option.label}</span>
+        </label>
+      ))}
+    </fieldset>
   );
 }
 
