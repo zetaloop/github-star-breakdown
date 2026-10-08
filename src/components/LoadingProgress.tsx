@@ -21,8 +21,8 @@ export default function LoadingProgress({
             ? "正在读取仓库列表"
             : "正在读取星标历史";
   return (
-    <div className="space-y-2 text-sm text-muted-foreground" role="status">
-      <div className="flex justify-between gap-4">
+    <div className={`analysis-progress ${status}`} role="status">
+      <div className="progress-caption">
         <span>{label}</span>
         <span>
           {completed}/{total || "?"} {stage === "repos" ? "页" : "个仓库"}
@@ -32,7 +32,6 @@ export default function LoadingProgress({
       </div>
       {(status === "loading" || status === "paused") && (
         <progress
-          className="w-full h-2"
           value={total ? completed : undefined}
           max={total || 1}
           aria-label={label}

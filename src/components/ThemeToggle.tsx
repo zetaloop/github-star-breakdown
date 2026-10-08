@@ -1,53 +1,41 @@
-import { CloudSun, Moon, Sun } from "lucide-react";
+import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { useId } from "react";
+import { IconButton } from "./ui";
+
+const themes = [
+  { value: "system", label: "跟随系统", icon: Monitor },
+  { value: "light", label: "浅色", icon: Sun },
+  { value: "dark", label: "深色", icon: Moon },
+];
 
 export default function ThemeToggle() {
-  const { setTheme, theme } = useTheme();
-
+  const { theme, setTheme } = useTheme();
+  const id = useId();
+  const Icon = themes.find((item) => item.value === theme)?.icon || Monitor;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Sun
-            className={cn(
-              "h-[1.2rem] w-[1.2rem] transition-all",
-              theme === "light" ? "rotate-0 scale-100" : "-rotate-90 scale-0",
-            )}
-          />
-          <Moon
-            className={cn(
-              "absolute h-[1.2rem] w-[1.2rem] transition-all",
-              theme === "dark" ? "rotate-0 scale-100" : "rotate-90 scale-0",
-            )}
-          />
-          <CloudSun
-            className={cn(
-              "absolute h-[1.2rem] w-[1.2rem] transition-all",
-              theme === "system" ? "rotate-0 scale-100" : "-rotate-90 scale-0",
-            )}
-          />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          <Sun className="mr-2 h-4 w-4" /> Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          <Moon className="mr-2 h-4 w-4" /> Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          <CloudSun className="mr-2 h-4 w-4" /> System
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="appearance">
+      <IconButton label="外观" popoverTarget={id}>
+        <Icon />
+      </IconButton>
+      <div id={id} popover="auto" className="appearance-menu floating-panel">
+        <p className="menu-caption">外观</p>
+        {themes.map((item) => (
+          <button
+            type="button"
+            key={item.value}
+            className="menu-item"
+            aria-pressed={theme === item.value}
+            popoverTarget={id}
+            popoverTargetAction="hide"
+            onClick={() => setTheme(item.value)}
+          >
+            <item.icon size={17} />
+            <span>{item.label}</span>
+            {theme === item.value && <Check size={15} />}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

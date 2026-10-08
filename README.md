@@ -50,7 +50,6 @@ pnpm format   # Format code and apply lint fixes
 - `src/services/githubApi.ts` – authenticated REST requests, token management and quota information.
 - `src/services/history.ts` – calendar dates, page selection and daily star counts.
 - `src/hooks/useStarAnalysis.ts` – analysis state, pause, retry and cancellation.
-- `src/pages` – routable pages (`Index.tsx`, `NotFound.tsx`).
 - `src/hooks` and `src/types` – custom hooks and TypeScript definitions.
 - `src/components/ui` – shadcn‑ui building blocks (avoid editing directly).
 
