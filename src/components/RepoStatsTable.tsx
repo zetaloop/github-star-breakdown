@@ -1,132 +1,171 @@
-import { Star } from "lucide-react";
-import type React from "react";
-import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type { GitHubRepo } from "@/types/github";
+import { Eye, Search } from "lucide-react";
+import { type CSSProperties, useMemo, useState } from "react";
+import type { RepoSeries } from "@/lib/chart";
+import { IconButton } from "./ui";
 
-interface RepoStatsTableProps {
-  repos: GitHubRepo[];
-  timeRange: "year" | "all" | "custom";
-  yearlyIncrements?: Map<string, number>;
-}
-
-const RepoStatsTable: React.FC<RepoStatsTableProps> = ({
+export default function RepoStatsTable({
   repos,
-  timeRange,
-  yearlyIncrements,
-}) => {
-  const sortedRepos = [...repos].sort((a, b) => {
-    if ((timeRange === "year" || timeRange === "custom") && yearlyIncrements) {
-      const incrementA = yearlyIncrements.get(a.name) || 0;
-      const incrementB = yearlyIncrements.get(b.name) || 0;
-      if (incrementB !== incrementA) {
-        return incrementB - incrementA; // Sort by yearly increment (desc)
-      }
-    } else {
-      // Primary sort: by total stars (descending)
-      if (b.stargazers_count !== a.stargazers_count) {
-        return b.stargazers_count - a.stargazers_count;
-      }
-    }
-
-    // Secondary sort: by creation date (newest first)
-    const dateA = new Date(a.created_at);
-    const dateB = new Date(b.created_at);
-    if (dateB.getTime() !== dateA.getTime()) {
-      return dateB.getTime() - dateA.getTime();
-    }
-
-    // Tertiary sort: alphabetically by name
-    return a.name.localeCompare(b.name);
-  });
-
-  const reposToDisplay =
-    (timeRange === "year" || timeRange === "custom") && yearlyIncrements
-      ? sortedRepos.filter(
-          (repo) => (yearlyIncrements.get(repo.name) || 0) !== 0,
-        )
-      : sortedRepos;
-
-  const getStarDisplay = (repo: GitHubRepo) => {
-    if ((timeRange === "year" || timeRange === "custom") && yearlyIncrements) {
-      const increment = yearlyIncrements.get(repo.name) || 0;
-      // Already filtered out 0, so increment here will be > 0 or < 0
-      if (increment > 0) {
-        return `+${increment.toLocaleString()}`;
-      }
-      return increment.toLocaleString(); // Handles negative (though unlikely for stars)
-    }
-    return repo.stargazers_count.toLocaleString();
-  };
-
+  selected,
+  highlighted,
+  onToggle,
+  onSelect,
+  onHighlight,
+}: {
+  repos: RepoSeries[];
+  selected: Set<number> | null;
+  highlighted: number | null;
+  onToggle: (id: number) => void;
+  onSelect: (ids: Set<number> | null) => void;
+  onHighlight: (id: number | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("range");
+  const filtered = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return repos
+      .filter((repo) =>
+        `${repo.name} ${repo.description || ""}`.toLowerCase().includes(text),
+      )
+      .toSorted((a, b) => {
+        if (sort === "total")
+          return (
+            b.stargazers_count - a.stargazers_count ||
+            a.name.localeCompare(b.name)
+          );
+        if (sort === "name") return a.name.localeCompare(b.name);
+        return (
+          (b.history?.total ?? -1) - (a.history?.total ?? -1) ||
+          b.stargazers_count - a.stargazers_count ||
+          a.name.localeCompare(b.name)
+        );
+      });
+  }, [repos, query, sort]);
   return (
-    <Card className="w-full overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Repository</TableHead>
-            <TableHead>Language</TableHead>
-            <TableHead className="text-left">
-              {timeRange === "year"
-                ? "Stars (Last Year)"
-                : timeRange === "custom"
-                  ? "Stars (Range)"
-                  : "Stars (Total)"}
-            </TableHead>
-            <TableHead>Created</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {reposToDisplay.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-4">
-                {timeRange === "year" || timeRange === "custom"
-                  ? "No repositories with star changes in the selected range."
-                  : "No repositories found."}
-              </TableCell>
-            </TableRow>
-          ) : (
-            reposToDisplay.map((repo) => (
-              <TableRow key={repo.id}>
-                <TableCell className="font-medium">
-                  <a
-                    href={repo.html_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline text-github-blue"
-                  >
-                    {repo.name}
-                  </a>
+    <section className="repo-section" aria-label="仓库列表">
+      <header className="section-heading">
+        <div>
+          <h2>
+            仓库 <span className="repo-quantity">{repos.length}</span>
+          </h2>
+          <p>勾选仓库，与图表一起查看</p>
+        </div>
+        <select
+          aria-label="仓库排序"
+          value={sort}
+          onChange={(event) => setSort(event.target.value)}
+        >
+          <option value="range">区间星标</option>
+          <option value="total">当前星标</option>
+          <option value="name">名称</option>
+        </select>
+      </header>
+      <div className="repo-filter">
+        <Search size={15} />
+        <input
+          type="search"
+          aria-label="筛选仓库"
+          placeholder="筛选仓库"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </div>
+      <div className="repo-selection">
+        <span>
+          已选{" "}
+          {repos.filter((repo) => !selected || selected.has(repo.id)).length} /{" "}
+          {repos.length}
+        </span>
+        <button type="button" onClick={() => onSelect(null)}>
+          全部
+        </button>
+        <button type="button" onClick={() => onSelect(new Set())}>
+          清空
+        </button>
+      </div>
+      <div className="repo-scroll">
+        <table className="repo-table">
+          <caption className="sr-only">
+            各仓库在所选范围内及当前的星标数量
+          </caption>
+          <colgroup>
+            <col className="selection-column" />
+            <col />
+            <col className="count-column" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col">
+                <span className="sr-only">显示</span>
+              </th>
+              <th scope="col">仓库</th>
+              <th scope="col">范围内 / 当前</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((repo) => (
+              <tr
+                key={repo.id}
+                data-highlighted={highlighted === repo.id}
+                data-selected={!selected || selected.has(repo.id)}
+                style={{ "--repo-color": repo.color } as CSSProperties}
+                onMouseEnter={() => onHighlight(repo.id)}
+                onMouseLeave={() => onHighlight(null)}
+                onFocus={() => onHighlight(repo.id)}
+                onBlur={() => onHighlight(null)}
+              >
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`显示 ${repo.name}`}
+                    checked={!selected || selected.has(repo.id)}
+                    onChange={() => onToggle(repo.id)}
+                  />
+                </td>
+                <td>
+                  <div className="repo-name">
+                    <a
+                      href={repo.html_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={repo.full_name}
+                    >
+                      {repo.name}
+                    </a>
+                    <IconButton
+                      label={`仅查看 ${repo.name}`}
+                      className="repo-isolate"
+                      onClick={() => onSelect(new Set([repo.id]))}
+                    >
+                      <Eye />
+                    </IconButton>
+                  </div>
                   {repo.description && (
-                    <p className="text-xs text-muted-foreground truncate max-w-xs">
+                    <p className="repo-description" title={repo.description}>
                       {repo.description}
                     </p>
                   )}
-                </TableCell>
-                <TableCell>{repo.language || "—"}</TableCell>
-                <TableCell className="text-left">
-                  <span className="flex items-center justify-start gap-1">
-                    <Star className="h-4 w-4 text-amber-500" />
-                    {getStarDisplay(repo)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {new Date(repo.created_at).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </Card>
+                  <div className="repo-meta">
+                    {repo.language && <span>{repo.language}</span>}
+                    <time dateTime={repo.created_at} title="创建时间">
+                      {new Date(repo.created_at).toLocaleDateString("zh-CN")}
+                    </time>
+                    {repo.fork && <span>派生</span>}
+                  </div>
+                </td>
+                <td className="repo-count">
+                  <strong>
+                    {repo.history
+                      ? repo.history.total.toLocaleString()
+                      : "未读取"}
+                  </strong>
+                  <span>{repo.stargazers_count.toLocaleString()}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!filtered.length && <p className="no-repos">没有匹配的仓库</p>}
+      </div>
+    </section>
   );
-};
-
-export default RepoStatsTable;
+}

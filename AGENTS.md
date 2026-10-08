@@ -14,15 +14,19 @@ pnpm check
 pnpm build
 ```
 
-Commit messages use Chinese Conventional Commits. Biome from the system PATH handles formatting and linting; TypeScript checks the application and Vite configuration. Components under `src/components/ui` originate from shadcn-ui.
+Commit messages use Chinese Conventional Commits. Biome from the system PATH handles formatting and linting; TypeScript checks the application and Vite configuration.
+
+The interface uses plain CSS, native dialog/popover elements and shared controls in `src/components/ui.tsx`. Recharts renders the chart; DayPicker handles custom date ranges. CSS variables use `light-dark()` for appearance. Animations are defined in CSS.
 
 ## Structure
 
 - `src/components/GitHubStarTracker.tsx` coordinates the search form and analysis views.
+- `src/components/AnalysisResults.tsx` shares repository selection and highlighting between the chart and list.
 - `src/hooks/useStarAnalysis.ts` owns analysis state, pause/resume promises and AbortControllers.
 - `src/services/githubApi.ts` handles authenticated REST requests and errors.
 - `src/services/github.ts` fetches repository lists and history with bounded concurrency.
 - `src/services/history.ts` maps calendar ranges to history pages and expands weekly data.
+- `src/lib/chart.ts` combines sparse daily histories into grouped or individual chart series.
 - `src/types/github.ts` contains the data shared by the services and views.
 
 ## Star history
@@ -32,3 +36,5 @@ Commit messages use Chinese Conventional Commits. Biome from the system PATH han
 Counts represent currently active stars grouped by their original creation dates. GitHub's week boundaries may use an aggregation timezone different from UTC, so a Sunday bucket can begin on Saturday in UTC.
 
 An analysis processes at most six repositories concurrently. Pause stops new requests; active requests can finish. Request errors pause the analysis for manual retry. Cancellation aborts requests and releases the pause promise.
+
+Each result stores its date bounds and a map of repository histories. A missing map entry means the repository has not finished loading. An empty history with a zero total means it has finished without stars in the selected range.

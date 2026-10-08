@@ -4,10 +4,9 @@ import { fetchGitHub, type GitHubPage } from "@/services/githubApi";
 import type {
   AnalysisProgress,
   AnalysisResult,
+  AnalysisStatus,
   TimeRange,
 } from "@/types/github";
-
-type Status = "idle" | "loading" | "paused" | "complete" | "stopped";
 
 interface Run {
   controller: AbortController;
@@ -19,7 +18,7 @@ interface Run {
 export function useStarAnalysis() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<AnalysisStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const current = useRef<Run | null>(null);
 
@@ -86,13 +85,16 @@ export function useStarAnalysis() {
     try {
       await analyzeUser(username, range, {
         request,
-        onRepos(repos) {
-          setResult({ username, range, repos, history: [] });
+        onRepos(repos, bounds) {
+          setResult({ username, range, bounds, repos, history: new Map() });
         },
-        onHistory(history) {
+        onHistory(id, history) {
           setResult(
             (value) =>
-              value && { ...value, history: [...value.history, ...history] },
+              value && {
+                ...value,
+                history: new Map(value.history).set(id, history),
+              },
           );
         },
         onProgress(value) {

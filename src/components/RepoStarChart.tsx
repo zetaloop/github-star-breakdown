@@ -1,418 +1,231 @@
-import { createRef, useEffect, useMemo, useRef } from "react";
-import { CSSTransition, TransitionGroup } from "react-transition-group";
+import { useDeferredValue, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
+  type TooltipContentProps,
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import type { RepoStarHistoryItem } from "@/types/github";
-import "./TooltipAnimation.css";
+import { type ChartMode, chartData, type RepoSeries } from "@/lib/chart";
+import type { AnalysisStatus, DateBounds } from "@/types/github";
+import { Segmented } from "./ui";
 
-interface RepoStarChartProps {
-  starHistory: RepoStarHistoryItem[];
-  timeRange: "year" | "all" | "custom";
-}
+const tickDate = new Intl.DateTimeFormat("zh-CN", {
+  year: "2-digit",
+  month: "numeric",
+  timeZone: "UTC",
+});
+const fullDate = new Intl.DateTimeFormat("zh-CN", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+});
+const compactNumber = new Intl.NumberFormat("zh-CN", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
-interface ChartDataPoint {
-  date: string;
-  [key: string]: string | number | null;
-}
-
-const RepoStarChart: React.FC<RepoStarChartProps> = ({
-  starHistory,
-  timeRange,
-}) => {
-  // Process data to create a continuous stacked area chart
-  const chartData = useMemo(() => {
-    if (!starHistory.length) return [];
-
-    // Get unique dates and repos
-    const dateSet = new Set<string>();
-    const repoSet = new Set<string>();
-
-    starHistory.forEach((item) => {
-      dateSet.add(item.date);
-      repoSet.add(item.repoName);
-    });
-
-    const dates = Array.from(dateSet).sort();
-    const repos = Array.from(repoSet);
-
-    // Initialize data structure with zero values
-    const stackedData: ChartDataPoint[] = dates.map((date) => {
-      const dataPoint: ChartDataPoint = { date };
-      repos.forEach((repo) => {
-        dataPoint[repo] = 0;
-      });
-      return dataPoint;
-    });
-
-    // Create a map for quick lookup
-    const dateMap = new Map<string, number>();
-    dates.forEach((date, index) => {
-      dateMap.set(date, index);
-    });
-
-    // Fill in actual star data
-    starHistory.forEach((item) => {
-      const index = dateMap.get(item.date);
-      if (index !== undefined) {
-        stackedData[index][item.repoName] = item.stars;
-      }
-    });
-
-    // Make the data cumulative for stacked area chart
-    // For each repo, stars should accumulate over time
-    repos.forEach((repo) => {
-      let cumulativeStars = 0;
-      for (let i = 0; i < stackedData.length; i++) {
-        cumulativeStars += stackedData[i][repo] as number;
-        stackedData[i][repo] = cumulativeStars;
-      }
-    });
-
-    // Convert initial zeros to null but keep one zero before first non-zero to smooth transition
-    repos.forEach((repo) => {
-      const firstIdx = stackedData.findIndex((dp) => (dp[repo] as number) > 0);
-      if (firstIdx > 0) {
-        for (let i = 0; i < firstIdx; i++) {
-          // keep last zero before data starts, hide earlier zeros
-          stackedData[i][repo] = i === firstIdx - 1 ? 0 : null;
-        }
-      } else if (firstIdx === -1) {
-        // repo never appears, hide all
-        stackedData.forEach((dp) => {
-          dp[repo] = null;
-        });
-      }
-    });
-    return stackedData;
-  }, [starHistory]);
-
-  // Extract unique repository names for rendering areas
-  // Sort repos by the same criteria as the table for consistency
-  const repoNames = useMemo(() => {
-    if (chartData.length === 0) return [];
-
-    // Get the last data point (most recent) to sort by current star count
-    const latestDataPoint = chartData[chartData.length - 1];
-
-    // Filter repos that have stars
-    const reposWithStars = Object.entries(latestDataPoint)
-      .filter(([key, value]) => key !== "date" && (value as number) > 0)
-      .map(([repo, stars]) => ({ repo, stars: stars as number }));
-
-    // Sort by current stars (desc) as the primary criterion
-    return reposWithStars
-      .sort((a, b) => b.stars - a.stars)
-      .map((item) => item.repo);
-  }, [chartData]);
-
-  // Map of repo name to total stars for scaling legend items
-  const starTotals = useMemo(() => {
-    if (chartData.length === 0) return new Map<string, number>();
-    const latest = chartData[chartData.length - 1];
-    const map = new Map<string, number>();
-    Object.entries(latest).forEach(([key, value]) => {
-      if (key !== "date") {
-        map.set(key, value as number);
-      }
-    });
-    return map;
-  }, [chartData]);
-
-  const maxStars = useMemo(
-    () => Math.max(0, ...Array.from(starTotals.values())),
-    [starTotals],
-  );
-
-  // Basic color palette with handpicked colors
-  const BASE_PALETTE = [
-    "#4C51BF", // Indigo
-    "#E53E3E", // Red
-    "#38A169", // Green
-    "#D69E2E", // Gold
-    "#805AD5", // Purple
-    "#3182CE", // Blue
-    "#DD6B20", // Orange
-    "#319795", // Teal
-    "#D53F8C", // Pink
-    "#718096", // Gray
-    "#2C7A7B", // Cyan
-    "#975A16", // Brown
-  ];
-  // Helper to convert HEX to HSL
-  const hexToHSL = (hex: string) => {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0;
-    let s = 0;
-    const l = (max + min) / 2;
-
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === r) {
-        h = (g - b) / d + (g < b ? 6 : 0);
-      } else if (max === g) {
-        h = (b - r) / d + 2;
-      } else {
-        h = (r - g) / d + 4;
-      }
-      h /= 6;
-    }
-    return {
-      h: Math.round(h * 360),
-      s: Math.round(s * 100),
-      l: Math.round(l * 100),
-    };
-  };
-  // Generate infinite harmonious colors with enhanced variation
-  const getRepoColor = (repoName: string): string => {
-    // Generate hash from repository name
-    let hash = 0;
-    for (const ch of repoName) {
-      hash = ch.charCodeAt(0) + ((hash << 5) - hash);
-    }
-    hash = Math.abs(hash);
-
-    // Use palette color as base
-    const idx = hash % BASE_PALETTE.length;
-    const { h: baseH, s: baseS, l: baseL } = hexToHSL(BASE_PALETTE[idx]);
-
-    // Create more color variation with multiple hash bits
-    const hashPart1 = hash & 0xff;
-    const hashPart2 = (hash >> 8) & 0xff;
-    const hashPart3 = (hash >> 16) & 0xff;
-
-    // Apply hue shift
-    const hueRange = 20;
-    const hueShift = (hashPart1 % (hueRange * 2)) - hueRange;
-    const hue = (baseH + hueShift + 360) % 360;
-
-    // Apply saturation variation
-    const satRange = 100;
-    const satShift = (hashPart2 % (satRange * 2)) - satRange;
-    const saturation = Math.min(95, Math.max(45, baseS + satShift));
-
-    // Apply lightness variation
-    const lightRange = 10;
-    const lightShift = (hashPart3 % (lightRange * 2)) - lightRange;
-    const lightness = Math.min(75, Math.max(35, baseL + lightShift));
-
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-  };
-
-  interface TooltipPayloadEntry {
-    dataKey: string;
-    name: string;
-    value: number;
-    color: string;
-    payload: ChartDataPoint;
-  }
-
-  const prevOrderRef = useRef<string[]>([]);
-
-  interface CustomTooltipProps {
-    active?: boolean;
-    payload?: TooltipPayloadEntry[];
-    label?: string;
-  }
-
-  // Custom tooltip formatter to sort repos by current stars at the hovered date
-  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
-    const reposAtDate = useMemo(() => {
-      if (!payload) return [] as TooltipPayloadEntry[];
-      return payload
-        .filter((entry) => entry.value > 0)
-        .sort((a, b) => b.value - a.value);
-    }, [payload]);
-
-    const prevOrder = prevOrderRef.current;
-
-    useEffect(() => {
-      prevOrderRef.current = reposAtDate.map((entry) => entry.dataKey);
-    }, [reposAtDate]);
-
-    if (!active || reposAtDate.length === 0) return null;
-
-    return (
-      <div className="bg-background border border-border p-3 rounded-md shadow-md">
-        <p className="font-medium mb-2">
-          {label ? new Date(label).toLocaleDateString() : ""}
-        </p>
-        <div className="tooltip-list space-y-1.5">
-          <TransitionGroup component="ul" className="list-none p-0 m-0">
-            {reposAtDate.map((entry, index) => {
-              const nodeRef = createRef<HTMLLIElement>();
-              return (
-                <CSSTransition
-                  key={entry.dataKey}
-                  nodeRef={nodeRef}
-                  timeout={300}
-                  classNames="tooltip-item"
-                >
-                  {(state: string) => {
-                    const fadingOut = state === "exiting" || state === "exited";
-                    const value = fadingOut ? 0 : entry.value;
-                    const showPlus =
-                      !fadingOut &&
-                      (timeRange === "year" || timeRange === "custom") &&
-                      value > 0;
-                    const prevIndex = prevOrder.indexOf(entry.dataKey);
-                    const moveClass =
-                      prevIndex === -1
-                        ? ""
-                        : prevIndex > index
-                          ? "tooltip-item-move tooltip-item-move-up"
-                          : prevIndex < index
-                            ? "tooltip-item-move tooltip-item-move-down"
-                            : "";
-                    return (
-                      <li
-                        ref={nodeRef}
-                        className={cn("flex items-center gap-2", moveClass)}
-                      >
-                        <div
-                          className="w-3 h-3 rounded-sm"
-                          style={{ backgroundColor: entry.color }}
-                        />
-                        <span className="text-sm">
-                          {entry.dataKey}: {showPlus ? "+" : ""}
-                          {value.toLocaleString()}{" "}
-                          {Math.abs(value) === 1 ? "star" : "stars"}
-                        </span>
-                      </li>
-                    );
-                  }}
-                </CSSTransition>
-              );
-            })}
-          </TransitionGroup>
-        </div>
-      </div>
-    );
-  };
-
-  const CustomLegend = () => (
-    <ul className="flex flex-wrap justify-center gap-2 mt-4">
-      {repoNames.map((repo) => {
-        const stars = starTotals.get(repo) || 0;
-        const ratio = maxStars ? Math.sqrt(stars / maxStars) : 0;
-        const fontSize = 0.75 + 0.25 * ratio; // rem
-        const square = 0.75 + 0.5 * ratio; // rem
-        return (
-          <li
-            key={repo}
-            className="flex items-center gap-2"
-            style={{ fontSize: `${fontSize}rem` }}
-          >
-            <span
-              className="rounded-sm"
-              style={{
-                backgroundColor: getRepoColor(repo),
-                width: `${square}rem`,
-                height: `${square}rem`,
-              }}
-            />
-            <span>{repo}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-
-  if (starHistory.length === 0) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Repository Star Growth</CardTitle>
-          <CardDescription>
-            No star data available for the selected time range.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
+function StarTooltip({ active, payload, label }: TooltipContentProps) {
+  if (!active || !payload.length || typeof label !== "number") return null;
+  const entries = payload
+    .filter((entry) => Number(entry.value) > 0)
+    .toSorted((a, b) => Number(b.value) - Number(a.value));
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Repository Star Growth</CardTitle>
-        <CardDescription>
-          {timeRange === "year"
-            ? "Cumulative star growth over the last year"
-            : timeRange === "custom"
-              ? "Cumulative star growth for selected range"
-              : "Cumulative star contribution of each repository over time"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[400px] relative">
-          <ResponsiveContainer
-            width="100%"
-            height="100%"
-            style={{ overflow: "visible" }}
-          >
+    <div className="chart-tooltip">
+      <header>
+        <time>{fullDate.format(label)}</time>
+        <strong>
+          {entries
+            .reduce((sum, entry) => sum + Number(entry.value), 0)
+            .toLocaleString()}
+        </strong>
+      </header>
+      <ul>
+        {entries.slice(0, 12).map((entry) => (
+          <li key={entry.name}>
+            <span className="color-dot" style={{ background: entry.color }} />
+            <span className="tooltip-name">{entry.name}</span>
+            <span>{Number(entry.value).toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+      {entries.length > 12 && (
+        <p>
+          其余 {entries.length - 12} 项合计{" "}
+          {entries
+            .slice(12)
+            .reduce((sum, entry) => sum + Number(entry.value), 0)
+            .toLocaleString()}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function RepoStarChart({
+  repos,
+  bounds,
+  status,
+  highlighted,
+  onHighlight,
+  onOnly,
+}: {
+  repos: RepoSeries[];
+  bounds: DateBounds;
+  status: AnalysisStatus;
+  highlighted: number | null;
+  onHighlight: (id: number | null) => void;
+  onOnly: (ids: number[]) => void;
+}) {
+  const [mode, setMode] = useState<ChartMode>("cumulative");
+  const [grouped, setGrouped] = useState(true);
+  const deferredRepos = useDeferredValue(repos);
+  const { series, points } = useMemo(
+    () => chartData(deferredRepos, bounds, mode, grouped),
+    [deferredRepos, bounds, mode, grouped],
+  );
+  const contributing = repos.filter(
+    (repo) => (repo.history?.total || 0) > 0,
+  ).length;
+  const focused =
+    highlighted !== null &&
+    series.some((entry) => entry.repoIds.includes(highlighted));
+  return (
+    <section className="chart-section" aria-label="星标贡献图">
+      <header className="section-heading">
+        <div>
+          <h2>星标贡献</h2>
+          <p>
+            {mode === "cumulative"
+              ? "从所选范围的起点累计"
+              : "当前有效星标的每日分布"}
+          </p>
+        </div>
+        <Segmented<ChartMode>
+          label="图表模式"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "cumulative", label: "累计" },
+            { value: "daily", label: "每日" },
+          ]}
+        />
+      </header>
+      {series.length ? (
+        <div className="star-plot" aria-busy={deferredRepos !== repos}>
+          <ResponsiveContainer>
             <AreaChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              accessibilityLayer
-              style={{ overflow: "visible" }}
+              data={points}
+              margin={{ top: 16, right: 12, bottom: 4, left: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--line)"
+                strokeDasharray="3 5"
+              />
               <XAxis
+                type="number"
+                scale="time"
                 dataKey="date"
-                tick={{ fontSize: 12 }}
-                tickFormatter={(date) => {
-                  const d = new Date(date);
-                  return `${d.getFullYear() % 100}/${d.getMonth() + 1}`;
-                }}
+                domain={["dataMin", "dataMax"]}
+                axisLine={false}
+                tickLine={false}
+                minTickGap={35}
+                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                tickFormatter={(date: number) => tickDate.format(date)}
               />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                width={48}
+                allowDecimals={false}
+                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                tickFormatter={(value: number) => compactNumber.format(value)}
+              />
               <Tooltip
-                wrapperStyle={{ zIndex: 20 }}
-                content={<CustomTooltip />}
+                content={StarTooltip}
                 animationDuration={0}
-                allowEscapeViewBox={{ x: false, y: true }}
-                position={{ y: 0 }}
+                wrapperStyle={{ zIndex: 5 }}
               />
-              {/* Render areas in the same order as the table (by total stars desc) */}
-              {[...repoNames].reverse().map((repo) => (
+              {series.toReversed().map((entry) => (
                 <Area
-                  key={repo}
-                  type="linear" // Use linear interpolation to avoid misalignment caused by smoothing algorithm
-                  dataKey={repo}
-                  name={repo}
-                  stackId="1"
-                  stroke={getRepoColor(repo)}
-                  fill={getRepoColor(repo)}
-                  fillOpacity={0.6}
-                  isAnimationActive={false} // Disable animation
+                  key={entry.key}
+                  dataKey={entry.key}
+                  name={entry.name}
+                  stackId="stars"
+                  stroke={entry.color}
+                  fill={entry.color}
+                  className={
+                    focused &&
+                    highlighted !== null &&
+                    !entry.repoIds.includes(highlighted)
+                      ? "dimmed"
+                      : undefined
+                  }
+                  fillOpacity={0.68}
+                  strokeWidth={1.4}
+                  isAnimationActive={false}
+                  activeDot={false}
+                  dot={points.length === 1 ? { r: 4 } : false}
+                  onMouseEnter={() =>
+                    onHighlight(
+                      entry.repoIds.length === 1 ? entry.repoIds[0] : null,
+                    )
+                  }
+                  onMouseLeave={() => onHighlight(null)}
                 />
               ))}
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <CustomLegend />
-      </CardContent>
-    </Card>
+      ) : (
+        <div className="empty-chart">
+          {!repos.length
+            ? "选择仓库以查看图表"
+            : status === "paused"
+              ? "分析已暂停"
+              : status === "loading"
+                ? "正在读取星标历史…"
+                : "所选仓库在此范围内没有星标"}
+        </div>
+      )}
+      <div className="chart-legend">
+        {series.map((entry) => (
+          <button
+            type="button"
+            key={entry.key}
+            title={`仅查看 ${entry.name}`}
+            onClick={() => onOnly(entry.repoIds)}
+            onMouseEnter={() =>
+              onHighlight(entry.repoIds.length === 1 ? entry.repoIds[0] : null)
+            }
+            onMouseLeave={() => onHighlight(null)}
+            onFocus={() =>
+              onHighlight(entry.repoIds.length === 1 ? entry.repoIds[0] : null)
+            }
+            onBlur={() => onHighlight(null)}
+          >
+            <span className="color-dot" style={{ background: entry.color }} />
+            <span>{entry.name}</span>
+          </button>
+        ))}
+      </div>
+      <footer className="chart-options">
+        <span>{repos.length} 个仓库已选，图例可单独查看。</span>
+        {contributing > 10 && (
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => setGrouped(!grouped)}
+          >
+            {grouped ? "展开全部" : "合并小仓库"}
+          </button>
+        )}
+      </footer>
+    </section>
   );
-};
-
-export default RepoStarChart;
+}

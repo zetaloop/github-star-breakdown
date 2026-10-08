@@ -1,4 +1,3 @@
-// GitHub API response types
 export interface GitHubRepo {
   id: number;
   name: string;
@@ -6,8 +5,6 @@ export interface GitHubRepo {
   description: string | null;
   stargazers_count: number;
   created_at: string;
-  updated_at: string;
-  pushed_at: string;
   language: string | null;
   fork: boolean;
   html_url: string;
@@ -23,11 +20,27 @@ export interface StarHistoryWeek {
   days: number[];
 }
 
-export interface RepoStarHistoryItem {
-  repoName: string;
+export interface StarHistoryDay {
   date: string;
   stars: number;
 }
+
+export interface RepoHistory {
+  days: StarHistoryDay[];
+  total: number;
+}
+
+export interface DateBounds {
+  from: string;
+  to: string;
+}
+
+export type AnalysisStatus =
+  | "idle"
+  | "loading"
+  | "paused"
+  | "complete"
+  | "stopped";
 
 export type TimeRange =
   | { type: "year" | "all" }
@@ -43,6 +56,7 @@ export interface AnalysisProgress {
 export interface AnalysisResult {
   username: string;
   range: TimeRange;
+  bounds: DateBounds;
   repos: GitHubRepo[];
-  history: RepoStarHistoryItem[];
+  history: Map<number, RepoHistory>;
 }

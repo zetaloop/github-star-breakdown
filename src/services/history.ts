@@ -1,5 +1,6 @@
 import type {
-  RepoStarHistoryItem,
+  DateBounds,
+  StarHistoryDay,
   StarHistoryWeek,
   TimeRange,
 } from "../types/github";
@@ -14,7 +15,7 @@ export function dateKey(date: Date): string {
   ].join("-");
 }
 
-export function dateBounds(range: TimeRange, now = new Date()) {
+export function dateBounds(range: TimeRange, now = new Date()): DateBounds {
   const from =
     range.type === "year"
       ? new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
@@ -45,7 +46,7 @@ export function weekStart(timestamp: number): number {
 export function historyPages(
   newest: number,
   pages: number,
-  bounds: ReturnType<typeof dateBounds>,
+  bounds: DateBounds,
 ) {
   const pageAt = (date: string) =>
     Math.max(
@@ -61,20 +62,21 @@ export function historyPages(
 }
 
 export function dailyHistory(
-  repoName: string,
   weeks: StarHistoryWeek[],
-  bounds: ReturnType<typeof dateBounds>,
-): RepoStarHistoryItem[] {
+  bounds: DateBounds,
+): StarHistoryDay[] {
   return weeks
     .flatMap((week) =>
       week.days.map((stars, index) => ({
-        repoName,
         date: new Date(weekStart(week.week) + index * day)
           .toISOString()
           .slice(0, 10),
         stars,
       })),
     )
-    .filter((item) => item.date >= bounds.from && item.date <= bounds.to)
+    .filter(
+      (item) =>
+        item.stars > 0 && item.date >= bounds.from && item.date <= bounds.to,
+    )
     .sort((a, b) => a.date.localeCompare(b.date));
 }

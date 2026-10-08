@@ -1,7 +1,8 @@
 import type {
   AnalysisProgress,
+  DateBounds,
   GitHubRepo,
-  RepoStarHistoryItem,
+  RepoHistory,
   StarHistoryWeek,
   TimeRange,
 } from "@/types/github";
@@ -10,8 +11,8 @@ import { dailyHistory, dateBounds, historyPages } from "./history";
 
 interface AnalysisCallbacks {
   request: <T>(path: string) => Promise<GitHubPage<T>>;
-  onRepos: (repos: GitHubRepo[]) => void;
-  onHistory: (history: RepoStarHistoryItem[]) => void;
+  onRepos: (repos: GitHubRepo[], bounds: DateBounds) => void;
+  onHistory: (id: number, history: RepoHistory) => void;
   onProgress: (progress: Omit<AnalysisProgress, "requests">) => void;
 }
 
@@ -20,6 +21,7 @@ export async function analyzeUser(
   range: TimeRange,
   { request, onRepos, onHistory, onProgress }: AnalysisCallbacks,
 ) {
+  const bounds = dateBounds(range);
   const repos: GitHubRepo[] = [];
   const repoPath = `users/${encodeURIComponent(username)}/repos?per_page=100&sort=full_name`;
   let repoPages = 1;
@@ -29,9 +31,8 @@ export async function analyzeUser(
     repos.push(...result.data.filter((repo) => repo.stargazers_count > 0));
     onProgress({ stage: "repos", completed: page, total: repoPages });
   }
-  onRepos(repos);
+  onRepos(repos, bounds);
   onProgress({ stage: "history", completed: 0, total: repos.length });
-  const bounds = dateBounds(range);
   let index = 0;
   let completed = 0;
   await Promise.all(
@@ -59,7 +60,11 @@ export async function analyzeUser(
             weeks.push(...result.data);
           }
         }
-        onHistory(dailyHistory(repo.name, weeks, bounds));
+        const days = dailyHistory(weeks, bounds);
+        onHistory(repo.id, {
+          days,
+          total: days.reduce((sum, entry) => sum + entry.stars, 0),
+        });
         onProgress({
           stage: "history",
           completed: ++completed,

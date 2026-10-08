@@ -1,6 +1,5 @@
 {
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": { "includes": ["**", "!pnpm-lock.yaml"] },
-  "formatter": { "indentStyle": "space", "indentWidth": 2 },
-  "css": { "parser": { "tailwindDirectives": true } }
+  "formatter": { "indentStyle": "space", "indentWidth": 2 }
 }

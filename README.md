@@ -1,64 +1,51 @@
 # GitHub Star Growth Mapper
 
-A React + Vite application that analyses how each repository contributes to a GitHub user's stars. It fetches data via the GitHub API and visualises growth with Recharts and Tailwind CSS. Dependencies are managed with pnpm.
+A browser-only application for exploring how each repository contributes to a GitHub user's stars. Built with React, Vite, Recharts and plain CSS.
 
-## Features
+## Explore
 
-- **GitHub authentication** – validate and store a personal access token to raise API limits.
-- **GitHub settings** – inspect the authenticated account and remaining requests, update or clear the token.
-- **User search** – analyse any public GitHub username.
-- **Custom date ranges** – inspect the last year, all time or a calendar‑based range.
-- **Interactive star chart** – stacked area chart with animated tooltips showing per‑repo totals.
-- **Repository table** – sorted by star change or total stars with links to each repo.
-- **Progress indicator** – repository progress, request counts, pause, resume and cancellation.
-- **Theme toggle** – switch between light, dark or system theme.
-
-Star history comes from GitHub's [repository star history API](https://docs.github.com/en/rest/activity/starring#get-repository-star-history). It returns 30 weeks per page with daily counts. Requests cover the selected date range, with up to six repositories processed concurrently.
-
-The chart groups stars that are still active by their original creation dates. Removing a star changes the count on its original date. Calendar days follow GitHub's aggregation weeks.
-
-## Installation
-
-Install dependencies with pnpm and start the development server:
-
-```bash
-pnpm install
-pnpm dev
-```
-
-Additional commands:
-
-```bash
-pnpm build    # Build for production
-pnpm preview  # Preview the production build
-pnpm check    # Run Biome and TypeScript
-pnpm format   # Format code and apply lint fixes
-```
+- Analyse a GitHub user's public repositories over the last year, all time or a custom date range.
+- Switch between cumulative contributions and daily star counts.
+- Select repositories in the searchable, sortable list, or isolate a repository from the chart legend.
+- Compare large collections with smaller contributions grouped together, and expand the complete chart when needed.
+- Follow repository progress and pause, resume, retry or cancel an analysis.
+- Manage the GitHub token and inspect API quota in settings.
+- Choose light, dark or system appearance.
 
 ## Usage
 
-1. Launch the app and enter your GitHub personal access token. Public repository history requires public metadata access.
-2. Type a GitHub username and pick **最近一年**, **全部历史** or **自定义日期**, then select **分析星标**. The result heading shows the range used for that analysis.
-3. Follow the progress as repositories and their star history are fetched. A failed request pauses the analysis; resume to retry it.
-4. Explore the stacked chart and stats table to see how repositories contributed to the star count.
-5. Open **GitHub 设置** to check remaining API quota or update the token.
+Enter a GitHub personal access token to connect. The token is stored in the current browser and sent to GitHub's API. Public repository history uses public metadata access.
 
-## Project Structure
+Enter a username, select **最近一年**, **全部历史** or **自定义日期**, and choose **分析星标**. The result heading identifies the range used for that analysis. Repository checkboxes control the chart; the eye button and legend isolate a contribution. **全部** restores all repositories.
 
-- `src/components` – analysis views, GitHub settings and shared controls.
-- `src/services/github.ts` – repository pagination and concurrent history fetching.
-- `src/services/githubApi.ts` – authenticated REST requests, token management and quota information.
-- `src/services/history.ts` – calendar dates, page selection and daily star counts.
-- `src/hooks/useStarAnalysis.ts` – analysis state, pause, retry and cancellation.
-- `src/hooks` and `src/types` – custom hooks and TypeScript definitions.
-- `src/components/ui` – shadcn‑ui building blocks (avoid editing directly).
+The repository list shows both selected-range counts and current star totals. Repositories whose history has not arrived are marked **未读取**. Failed requests pause the analysis and show GitHub's error; use **重试** after resolving the error, or update the token in **GitHub 设置**.
 
-Configuration files like `vite.config.ts` and `tailwind.config.ts` define the build and Tailwind setup.
+## Data
 
-## Contributing
+History comes from GitHub's [repository star history API](https://docs.github.com/en/rest/activity/starring#get-repository-star-history), which returns 30 weeks per page with daily counts. Requests cover the selected date range, with up to six repositories processed concurrently.
 
-Run `pnpm format`, `pnpm check` and `pnpm build` before submitting changes. Biome is provided by the system PATH. Components in `src/components/ui` originate from shadcn-ui.
+Counts represent stars that are still active, grouped by their original creation dates. Removing a star changes its original date's count. Calendar days follow GitHub's aggregation weeks. The chart fills inactive dates with zero and accumulates counts from the selected range's starting point.
 
----
+## Development
 
-This README documents the current codebase and its features.
+Use pnpm and a system installation of Biome.
+
+```sh
+pnpm install
+pnpm dev
+pnpm format
+pnpm check
+pnpm build
+```
+
+`pnpm check` runs Biome and TypeScript. `pnpm build` type-checks and builds the static site in `dist/`; `pnpm preview` serves the production build locally.
+
+## Structure
+
+- `src/components` contains the search controls, account settings, chart and repository list.
+- `src/hooks/useStarAnalysis.ts` owns analysis state, pause, retry and cancellation.
+- `src/services/githubApi.ts` handles authenticated REST requests and quota information.
+- `src/services/github.ts` fetches repository lists and paginated history.
+- `src/services/history.ts` maps calendar ranges to pages and expands weekly counts.
+- `src/lib/chart.ts` prepares repository groups and chart series.
+- `src/index.css` defines shared appearance, responsive layouts and motion.

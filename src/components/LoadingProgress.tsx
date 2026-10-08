@@ -1,8 +1,8 @@
-import type { AnalysisProgress } from "@/types/github";
+import type { AnalysisProgress, AnalysisStatus } from "@/types/github";
 
 interface LoadingProgressProps {
   progress: AnalysisProgress;
-  status: string;
+  status: AnalysisStatus;
 }
 
 export default function LoadingProgress({
