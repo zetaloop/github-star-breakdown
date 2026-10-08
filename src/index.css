@@ -839,7 +839,7 @@ fieldset {
   transition: opacity var(--fast);
 }
 
-.star-plot .recharts-area.dimmed {
+.star-plot[data-highlighted="true"] .recharts-area:not(.highlighted) {
   opacity: 0.2;
 }
 

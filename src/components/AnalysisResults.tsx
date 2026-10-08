@@ -1,5 +1,5 @@
 import { ExternalLink } from "lucide-react";
-import { lazy, memo, Suspense, useMemo, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useMemo, useState } from "react";
 import { type RepoSeries, repoColor } from "@/lib/chart";
 import { rangeLabel } from "@/services/history";
 import type { AnalysisResult, AnalysisStatus } from "@/types/github";
@@ -29,20 +29,29 @@ export default memo(function AnalysisResults({
     () => repos.filter((repo) => !selected || selected.has(repo.id)),
     [repos, selected],
   );
-  const total = repos.reduce((sum, repo) => sum + repo.stargazers_count, 0);
-  const inRange = repos.reduce(
-    (sum, repo) => sum + (repo.history?.total || 0),
-    0,
+  const { total, inRange } = useMemo(
+    () => ({
+      total: repos.reduce((sum, repo) => sum + repo.stargazers_count, 0),
+      inRange: repos.reduce((sum, repo) => sum + (repo.history?.total || 0), 0),
+    }),
+    [repos],
   );
 
-  function toggle(id: number) {
-    setSelected((value) => {
-      const next = new Set(value || repos.map((repo) => repo.id));
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  const toggle = useCallback(
+    (id: number) => {
+      setSelected((value) => {
+        const next = new Set(value || repos.map((repo) => repo.id));
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    },
+    [repos],
+  );
+  const selectOnly = useCallback(
+    (id: number) => setSelected(new Set([id])),
+    [],
+  );
 
   return (
     <section
@@ -101,7 +110,7 @@ export default memo(function AnalysisResults({
               status={status}
               highlighted={highlighted}
               onHighlight={setHighlighted}
-              onOnly={(id) => setSelected(new Set([id]))}
+              onOnly={selectOnly}
             />
           </Suspense>
           <RepoStatsTable

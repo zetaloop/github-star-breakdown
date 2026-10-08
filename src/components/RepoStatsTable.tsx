@@ -1,25 +1,105 @@
 import { Eye, Search } from "lucide-react";
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, memo, useMemo, useState } from "react";
 import type { RepoSeries } from "@/lib/chart";
 import { IconButton } from "./ui";
 
-export default function RepoStatsTable({
-  repos,
-  selected,
-  highlighted,
-  onToggle,
-  onSelect,
-  onHighlight,
-}: {
+const numberFormat = new Intl.NumberFormat();
+const dateFormat = new Intl.DateTimeFormat("zh-CN");
+
+interface RepoStatsTableProps {
   repos: RepoSeries[];
   selected: Set<number> | null;
   highlighted: number | null;
   onToggle: (id: number) => void;
   onSelect: (ids: Set<number> | null) => void;
   onHighlight: (id: number | null) => void;
-}) {
+}
+
+const RepoRow = memo(function RepoRow({
+  repo,
+  selected,
+  highlighted,
+  onToggle,
+  onSelect,
+  onHighlight,
+}: {
+  repo: RepoSeries;
+  selected: boolean;
+  highlighted: boolean;
+} & Pick<RepoStatsTableProps, "onToggle" | "onSelect" | "onHighlight">) {
+  return (
+    <tr
+      data-highlighted={highlighted}
+      data-selected={selected}
+      style={{ "--repo-color": repo.color } as CSSProperties}
+      onMouseEnter={() => onHighlight(repo.id)}
+      onMouseLeave={() => onHighlight(null)}
+      onFocus={() => onHighlight(repo.id)}
+      onBlur={() => onHighlight(null)}
+    >
+      <td>
+        <input
+          type="checkbox"
+          aria-label={`显示 ${repo.name}`}
+          checked={selected}
+          onChange={() => onToggle(repo.id)}
+        />
+      </td>
+      <td>
+        <div className="repo-name">
+          <a
+            href={repo.html_url}
+            target="_blank"
+            rel="noreferrer"
+            title={repo.full_name}
+          >
+            {repo.name}
+          </a>
+          <IconButton
+            label={`仅查看 ${repo.name}`}
+            className="repo-isolate"
+            onClick={() => onSelect(new Set([repo.id]))}
+          >
+            <Eye />
+          </IconButton>
+        </div>
+        {repo.description && (
+          <p className="repo-description" title={repo.description}>
+            {repo.description}
+          </p>
+        )}
+        <div className="repo-meta">
+          {repo.language && <span>{repo.language}</span>}
+          <time dateTime={repo.created_at} title="创建时间">
+            {dateFormat.format(new Date(repo.created_at))}
+          </time>
+          {repo.fork && <span>派生</span>}
+        </div>
+      </td>
+      <td className="repo-count">
+        <strong>
+          {repo.history ? numberFormat.format(repo.history.total) : "未读取"}
+        </strong>
+        <span>{numberFormat.format(repo.stargazers_count)}</span>
+      </td>
+    </tr>
+  );
+});
+
+export default memo(function RepoStatsTable({
+  repos,
+  selected,
+  highlighted,
+  onToggle,
+  onSelect,
+  onHighlight,
+}: RepoStatsTableProps) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("range");
+  const selectedCount = useMemo(
+    () => repos.filter((repo) => !selected || selected.has(repo.id)).length,
+    [repos, selected],
+  );
   const filtered = useMemo(() => {
     const text = query.trim().toLowerCase();
     return repos
@@ -70,9 +150,7 @@ export default function RepoStatsTable({
       </div>
       <div className="repo-selection">
         <span>
-          已选{" "}
-          {repos.filter((repo) => !selected || selected.has(repo.id)).length} /{" "}
-          {repos.length}
+          已选 {selectedCount} / {repos.length}
         </span>
         <button type="button" onClick={() => onSelect(null)}>
           全部
@@ -102,64 +180,15 @@ export default function RepoStatsTable({
           </thead>
           <tbody>
             {filtered.map((repo) => (
-              <tr
+              <RepoRow
                 key={repo.id}
-                data-highlighted={highlighted === repo.id}
-                data-selected={!selected || selected.has(repo.id)}
-                style={{ "--repo-color": repo.color } as CSSProperties}
-                onMouseEnter={() => onHighlight(repo.id)}
-                onMouseLeave={() => onHighlight(null)}
-                onFocus={() => onHighlight(repo.id)}
-                onBlur={() => onHighlight(null)}
-              >
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`显示 ${repo.name}`}
-                    checked={!selected || selected.has(repo.id)}
-                    onChange={() => onToggle(repo.id)}
-                  />
-                </td>
-                <td>
-                  <div className="repo-name">
-                    <a
-                      href={repo.html_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={repo.full_name}
-                    >
-                      {repo.name}
-                    </a>
-                    <IconButton
-                      label={`仅查看 ${repo.name}`}
-                      className="repo-isolate"
-                      onClick={() => onSelect(new Set([repo.id]))}
-                    >
-                      <Eye />
-                    </IconButton>
-                  </div>
-                  {repo.description && (
-                    <p className="repo-description" title={repo.description}>
-                      {repo.description}
-                    </p>
-                  )}
-                  <div className="repo-meta">
-                    {repo.language && <span>{repo.language}</span>}
-                    <time dateTime={repo.created_at} title="创建时间">
-                      {new Date(repo.created_at).toLocaleDateString("zh-CN")}
-                    </time>
-                    {repo.fork && <span>派生</span>}
-                  </div>
-                </td>
-                <td className="repo-count">
-                  <strong>
-                    {repo.history
-                      ? repo.history.total.toLocaleString()
-                      : "未读取"}
-                  </strong>
-                  <span>{repo.stargazers_count.toLocaleString()}</span>
-                </td>
-              </tr>
+                repo={repo}
+                highlighted={highlighted === repo.id}
+                selected={!selected || selected.has(repo.id)}
+                onToggle={onToggle}
+                onSelect={onSelect}
+                onHighlight={onHighlight}
+              />
             ))}
           </tbody>
         </table>
@@ -167,4 +196,4 @@ export default function RepoStatsTable({
       </div>
     </section>
   );
-}
+});
