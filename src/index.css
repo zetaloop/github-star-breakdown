@@ -61,7 +61,8 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+.star-plot:focus-visible {
   outline: 2px solid var(--text-muted);
   outline-offset: 3px;
 }
@@ -835,12 +836,38 @@ fieldset {
   background: var(--surface);
 }
 
-.star-plot .recharts-area {
-  transition: opacity var(--fast);
+.star-plot {
+  position: relative;
 }
 
-.star-plot[data-highlighted="true"] .recharts-area:not(.highlighted) {
-  opacity: 0.2;
+.plot-surface {
+  width: 100%;
+  height: 100%;
+}
+
+.plot-surface svg path {
+  transition:
+    opacity var(--fast),
+    fill-opacity var(--fast),
+    stroke-opacity var(--fast);
+}
+
+.chart-cursor {
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 34px;
+  width: 1px;
+  background: #ccc;
+  pointer-events: none;
+}
+
+.tooltip-positioner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  pointer-events: none;
 }
 
 .chart-legend {
@@ -919,6 +946,9 @@ fieldset {
 
 .chart-tooltip li {
   padding: 3px 0;
+  transition:
+    opacity var(--fast),
+    transform var(--fast) var(--ease);
 }
 
 .tooltip-row {
@@ -932,33 +962,19 @@ fieldset {
   position: relative;
 }
 
-.tooltip-item-enter {
-  opacity: 0;
-  transform: translateX(2rem);
-}
-
-.tooltip-item-enter-active {
-  opacity: 1;
-  transform: none;
-  transition:
-    opacity var(--fast),
-    transform var(--fast) var(--ease);
-}
-
-.tooltip-item-exit {
-  opacity: 1;
-  transform: none;
-}
-
-.tooltip-item-exit-active {
+.tooltip-list > li:is([data-state="exiting"], [data-state="exited"]) {
   position: absolute;
   width: 100%;
   left: 0;
   opacity: 0;
   transform: translateX(2rem);
-  transition:
-    opacity var(--fast),
-    transform var(--fast) var(--ease);
+}
+
+@starting-style {
+  .tooltip-list > li[data-state="entering"] {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
 }
 
 .tooltip-up {

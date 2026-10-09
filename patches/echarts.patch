@@ -1,0 +1,15 @@
+diff --git a/lib/chart/line/poly.js b/lib/chart/line/poly.js
+index 8b14831f7496733370238d3c37c1fc2fcd4cdea7..7ca4e510a4f965bf1567035f28587a2ebdc88150 100644
+--- a/lib/chart/line/poly.js
++++ b/lib/chart/line/poly.js
+@@ -84,8 +84,8 @@ function drawSegment(ctx, points, start, segLen, allLen, dir, smooth, smoothMono
+     } else {
+       var dx = x - prevX;
+       var dy = y - prevY;
+-      // Ignore tiny segment.
+-      if (dx * dx + dy * dy < 0.5) {
++      // Ignore duplicate points.
++      if (dx === 0 && dy === 0) {
+         idx += dir;
+         continue;
+       }

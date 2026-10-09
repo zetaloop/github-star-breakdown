@@ -1,0 +1,2 @@
+patchedDependencies:
+  echarts: patches/echarts.patch
