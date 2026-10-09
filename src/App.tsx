@@ -11,7 +11,7 @@ export default function App() {
           <ThemeToggle />
           <a
             className="icon-button"
-            href="https://github.com/zetaloop/github-star-growth-mapper"
+            href="https://github.com/zetaloop/github-star-breakdown"
             target="_blank"
             rel="noreferrer"
             aria-label="项目源码"
