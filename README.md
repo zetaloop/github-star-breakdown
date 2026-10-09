@@ -1,4 +1,4 @@
-# GitHub Star Breakdown
+# [GitHub Star Breakdown](https://zetaloop.github.io/github-star-breakdown/)
 
 Visualise how a GitHub user's repositories contribute to their total stars.
 
