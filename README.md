@@ -1,4 +1,4 @@
-# GitHub Star Growth Mapper
+# GitHub Star Breakdown
 
 Visualise how a GitHub user's repositories contribute to their total stars.
 
