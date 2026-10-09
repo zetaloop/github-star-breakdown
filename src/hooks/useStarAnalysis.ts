@@ -61,24 +61,34 @@ export function useStarAnalysis() {
     setError(null);
     setProgress({ stage: "repos", completed: 0, total: 0, requests: 0 });
     let requests = 0;
+    let activeRequests = 0;
+    const waiting: (() => void)[] = [];
 
     async function request<T>(path: string): Promise<GitHubPage<T>> {
-      while (true) {
-        await paused;
-        controller.signal.throwIfAborted();
-        try {
-          requests++;
-          setProgress((value) => value && { ...value, requests });
-          const page = await fetchGitHub<T>(path, controller.signal);
+      if (activeRequests < 50) activeRequests++;
+      else await new Promise<void>((resolve) => waiting.push(resolve));
+      try {
+        while (true) {
+          await paused;
           controller.signal.throwIfAborted();
-          return page;
-        } catch (cause) {
-          controller.signal.throwIfAborted();
-          if (!paused) {
-            setError(cause instanceof Error ? cause.message : String(cause));
-            run.pause();
+          try {
+            requests++;
+            setProgress((value) => value && { ...value, requests });
+            const page = await fetchGitHub<T>(path, controller.signal);
+            controller.signal.throwIfAborted();
+            return page;
+          } catch (cause) {
+            controller.signal.throwIfAborted();
+            if (!paused) {
+              setError(cause instanceof Error ? cause.message : String(cause));
+              run.pause();
+            }
           }
         }
+      } finally {
+        const next = waiting.shift();
+        if (next) next();
+        else activeRequests--;
       }
     }
 

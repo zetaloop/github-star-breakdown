@@ -22,55 +22,64 @@ export async function analyzeUser(
   { request, onRepos, onHistory, onProgress }: AnalysisCallbacks,
 ) {
   const bounds = dateBounds(range);
-  const repos: GitHubRepo[] = [];
   const repoPath = `users/${encodeURIComponent(username)}/repos?per_page=100&sort=full_name`;
-  let repoPages = 1;
-  for (let page = 1; page <= repoPages; page++) {
-    const result = await request<GitHubRepo[]>(`${repoPath}&page=${page}`);
-    if (page === 1) repoPages = result.pages;
-    repos.push(...result.data.filter((repo) => repo.stargazers_count > 0));
-    onProgress({ stage: "repos", completed: page, total: repoPages });
-  }
+  const first = await request<GitHubRepo[]>(`${repoPath}&page=1`);
+  let completedPages = 1;
+  onProgress({ stage: "repos", completed: completedPages, total: first.pages });
+  const remaining = await Promise.all(
+    Array.from({ length: first.pages - 1 }, async (_, index) => {
+      const result = await request<GitHubRepo[]>(
+        `${repoPath}&page=${index + 2}`,
+      );
+      onProgress({
+        stage: "repos",
+        completed: ++completedPages,
+        total: first.pages,
+      });
+      return result.data;
+    }),
+  );
+  const repos = [first.data, ...remaining]
+    .flat()
+    .filter((repo) => repo.stargazers_count > 0);
   onRepos(repos, bounds);
   onProgress({ stage: "history", completed: 0, total: repos.length });
-  let index = 0;
   let completed = 0;
   await Promise.all(
-    Array.from({ length: Math.min(6, repos.length) }, async () => {
-      while (index < repos.length) {
-        const repo = repos[index++];
-        const path = `repos/${repo.full_name}/stargazers/history`;
-        const initial = await request<StarHistoryWeek[]>(path);
-        const weeks: StarHistoryWeek[] = [];
-        if (initial.data.length) {
-          const pages = historyPages(
-            initial.data[0].week,
-            initial.pages,
-            bounds,
-          );
-          if (pages.first === 1) weeks.push(...initial.data);
-          for (
-            let page = Math.max(2, pages.first);
-            page <= pages.last;
-            page++
-          ) {
-            const result = await request<StarHistoryWeek[]>(
-              `${path}?page=${page}`,
-            );
-            weeks.push(...result.data);
-          }
-        }
-        const days = dailyHistory(weeks, bounds);
-        onHistory(repo.id, {
-          days,
-          total: days.reduce((sum, entry) => sum + entry.stars, 0),
-        });
-        onProgress({
-          stage: "history",
-          completed: ++completed,
-          total: repos.length,
-        });
+    repos.map(async (repo) => {
+      const path = `repos/${repo.full_name}/stargazers/history`;
+      const initial = await request<StarHistoryWeek[]>(path);
+      let weeks: StarHistoryWeek[] = [];
+      if (initial.data.length) {
+        const { first, last } = historyPages(
+          initial.data[0].week,
+          initial.pages,
+          bounds,
+        );
+        const pages = await Promise.all(
+          Array.from(
+            { length: Math.max(0, last - first + 1) },
+            async (_, index) => {
+              const page = first + index;
+              return page === 1
+                ? initial.data
+                : (await request<StarHistoryWeek[]>(`${path}?page=${page}`))
+                    .data;
+            },
+          ),
+        );
+        weeks = pages.flat();
       }
+      const days = dailyHistory(weeks, bounds);
+      onHistory(repo.id, {
+        days,
+        total: days.reduce((sum, entry) => sum + entry.stars, 0),
+      });
+      onProgress({
+        stage: "history",
+        completed: ++completed,
+        total: repos.length,
+      });
     }),
   );
 }
